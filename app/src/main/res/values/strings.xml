@@ -1,3 +1,26 @@
 <resources>
     <string name="app_name">ReadEra</string>
+    <string name="mark_as_unread">标记为未读</string>
+    <string name="mark_as_read">标记为已读</string>
+    <string name="mark_as_favorite">标记为收藏</string>>
+    <string name="my_bookshelf">我的书架</string>
+    <string name="navigation_drawer_open">打开导航栏</string>
+    <string name="navigation_drawer_close">关闭导航栏</string>
+    <string name="settings_function_developing">设置功能待开发</string>
+    <string name="book_added">已添加: %1$s</string>
+    <string name="add_failed">添加失败</string>
+    <string name="books_imported">已导入 %1$d 本书籍</string>
+    <string name="import_failed">导入失败</string>
+    <string name="permission_denied">没有权限访问该目录</string>
+    <string name="mark_unread_toast">标记为待读</string>
+    <string name="mark_read_toast">标记为已读</string>
+    <string name="mark_favorite_toast">标记为收藏</string>
+    <string name="default_cover_text">无法生成封面</string>
+    <string name="book_cover">书本封面</string>
+    <string name="confirm_delete">确认删除</string>
+    <string name="confirm_delete_book">确定要删除 \'%s\' 吗？</string>
+    <string name="delete">删除</string>
+    <string name="cancel">取消</string>
+    <string name="book_deleted">%s 已删除</string>
+    <string name="delete_failed">删除失败</string>
 </resources>

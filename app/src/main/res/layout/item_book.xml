@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout  xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:gravity="center_vertical"
+    android:descendantFocusability="blocksDescendants">
+<ImageView
+    android:id="@+id/bookImageView"
+    android:layout_width="80dp"
+    android:layout_height="120dp"
+    android:scaleType="fitXY"
+    android:contentDescription="@string/book_cover"
+    android:layout_marginEnd="16dp"/>
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+        <TextView
+            android:id="@+id/bookTitleTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:text="书籍名称" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="20dp">
+
+            <Button
+                android:id="@+id/markAsUnreadButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:contentDescription="@string/mark_unread_toast"
+                android:background="@drawable/schedule_selector"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text=""
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/markAsReadButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:background="@drawable/done_all_selector"
+                android:text=""
+                android:textSize="12sp"
+                android:contentDescription="@string/mark_read_toast" />
+
+            <Button
+                android:id="@+id/markAsFavoriteButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/star_selector"
+                android:text=""
+                android:textSize="12sp"
+                android:contentDescription="@string/mark_favorite_toast"/>
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
