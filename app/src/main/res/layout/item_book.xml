@@ -31,7 +31,7 @@
             android:orientation="horizontal"
             android:layout_marginTop="20dp">
 
-            <Button
+            <android.widget.Button
                 android:id="@+id/markAsUnreadButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -43,7 +43,7 @@
                 android:text=""
                 android:textSize="12sp" />
 
-            <Button
+            <android.widget.Button
                 android:id="@+id/markAsReadButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -53,7 +53,7 @@
                 android:textSize="12sp"
                 android:contentDescription="@string/mark_read_toast" />
 
-            <Button
+            <android.widget.Button
                 android:id="@+id/markAsFavoriteButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

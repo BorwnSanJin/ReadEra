@@ -22,6 +22,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.example.readera.BookInfo;
+import com.example.readera.Dao.BookDao;
 import com.example.readera.Enum.CoverDataType;
 import com.example.readera.R;
 import android.widget.Toast;
@@ -29,84 +30,98 @@ import java.util.List;
 
 public class BookAdapter extends ArrayAdapter<BookInfo> {
 
+    private static final int COVER_WIDTH = 80;
+    private static final int COVER_HEIGHT = 120;
+
     private final LayoutInflater inflater;
+    private final BookDao bookDao; // 添加 BookDao 实例
+
     public BookAdapter(@NonNull Context context, List<BookInfo> books) {
         super(context, R.layout.item_book,books);
         inflater = LayoutInflater.from(context);
+        bookDao = new BookDao(context); // 初始化 BookDao
     }
 
     @NonNull
     @Override
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         ViewHolder holder;
-        if (convertView == null) {
-            convertView = inflater.inflate(R.layout.item_book, parent, false);
-            holder = new ViewHolder();
-            holder.bookImageView = convertView.findViewById(R.id.bookImageView);
-            holder.bookTitleTextView = convertView.findViewById(R.id.bookTitleTextView);
-            holder.unreadButton = convertView.findViewById(R.id.markAsUnreadButton);
-            holder.readButton = convertView.findViewById(R.id.markAsReadButton);
-            holder.favoriteButton = convertView.findViewById(R.id.markAsFavoriteButton);
-            // 初始化按钮等其他 View
-            convertView.setTag(holder);
-        } else {
-            holder = (ViewHolder) convertView.getTag();
-        }
-
+       if(convertView == null){
+           convertView = inflater.inflate(R.layout.item_book,parent,false);
+           holder = new ViewHolder(convertView);
+       }else {
+           holder = (ViewHolder) convertView.getTag();
+       }
         BookInfo currentBook = getItem(position);
         if (currentBook != null) {
-            holder.bookTitleTextView.setText(currentBook.title());
-            loadCover(holder.bookImageView, currentBook.coverData(), currentBook.coverDataType());
-
-            holder.unreadButton.setOnClickListener(v -> {
-                v.setSelected(!v.isSelected()); // 切换选中状态
-                Toast.makeText(getContext(), R.string.mark_unread_toast, Toast.LENGTH_SHORT).show();
-                // TODO: 实现标记为待读的逻辑
-            });
-
-            holder.readButton.setOnClickListener(v -> {
-                v.setSelected(!v.isSelected()); // 切换选中状态
-                Toast.makeText(getContext(), R.string.mark_read_toast, Toast.LENGTH_SHORT).show();
-                // TODO: 实现标记为已读的逻辑
-            });
-
-            holder.favoriteButton.setOnClickListener(v -> {
-                v.setSelected(!v.isSelected()); // 切换选中状态
-                Toast.makeText(getContext(), R.string.mark_favorite_toast, Toast.LENGTH_SHORT).show();
-                // TODO: 实现标记为收藏的逻辑
-            });
-
+            setupBookItemView(holder, currentBook);
         }
         return convertView;
     }
 
+    private void setupBookItemView(ViewHolder holder, BookInfo currentBook) {
+        holder.bookTitleTextView.setText(currentBook.title());
+        loadCover(holder.bookImageView, currentBook.coverData(), currentBook.coverDataType());
+
+        holder.unreadButton.setSelected(currentBook.isUnread());
+        holder.readButton.setSelected(currentBook.isRead());
+        holder.favoriteButton.setSelected(currentBook.isFavorite());
+
+        final String bookTitle = currentBook.title();
+
+        holder.unreadButton.setOnClickListener(v -> {
+            boolean isUnread = !currentBook.isUnread();
+            bookDao.updateBookUnreadStatus(bookTitle, isUnread);
+            currentBook.setUnread(isUnread);
+            if (isUnread && currentBook.isRead()) {
+                bookDao.updateBookReadStatus(bookTitle, false);
+                currentBook.setRead(false);
+            }
+            notifyDataSetChanged();
+            Toast.makeText(getContext(), isUnread ? R.string.mark_unread_toast : R.string.unmark_unread_toast, Toast.LENGTH_SHORT).show();
+        });
+
+        holder.readButton.setOnClickListener(v -> {
+            boolean isRead = !currentBook.isRead();
+            bookDao.updateBookReadStatus(bookTitle, isRead);
+            currentBook.setRead(isRead);
+            if (isRead && currentBook.isUnread()) {
+                bookDao.updateBookUnreadStatus(bookTitle, false);
+                currentBook.setUnread(false);
+            }
+            notifyDataSetChanged();
+            Toast.makeText(getContext(), isRead ? R.string.mark_read_toast : R.string.unmark_read_toast, Toast.LENGTH_SHORT).show();
+        });
+
+        holder.favoriteButton.setOnClickListener(v -> {
+            boolean isFavorite = !currentBook.isFavorite();
+            bookDao.updateBookFavoriteStatus(bookTitle, isFavorite);
+            currentBook.setFavorite(isFavorite);
+            holder.favoriteButton.setSelected(isFavorite);
+            notifyDataSetChanged();
+            Toast.makeText(getContext(), isFavorite ? R.string.mark_favorite_toast : R.string.mark_unFavorite_toast, Toast.LENGTH_SHORT).show();
+        });
+    }
+
     private void loadCover(ImageView imageView, String coverData, CoverDataType coverDataType) {
         if (coverData != null && coverDataType != null) {
-            switch (coverDataType) {
-                case TEXT:
-                    // 生成文本封面 (需要实现 generateCoverBitmap 方法)
-                    Bitmap textCover = generateCoverBitmap(coverData, 80, 120);
-                    imageView.setImageBitmap(textCover);
-                    break;
-                case RESOURCE_ID:
-                    try {
-                        int resourceId = Integer.parseInt(coverData);
-                        imageView.setImageResource(resourceId);
-                    } catch (NumberFormatException e) {
-                        imageView.setImageResource(R.drawable.ic_book_placeholder);
-                        Log.e("BookAdapter", "Invalid resource ID: " + coverData);
-                    }
-                    break;
-                case URI:
-                    imageView.setImageURI(Uri.parse(coverData));
-                    break;
-                case PDF_PAGE:
-                    // TODO: 实现从 PDF 文件中提取第一页并显示
-                    imageView.setImageResource(R.drawable.ic_pdf_placeholder);
-                    break;
-                default:
+            if (coverDataType == TEXT) {
+                imageView.setImageBitmap(generateCoverBitmap(coverData, COVER_WIDTH, COVER_HEIGHT));
+            } else if (coverDataType == CoverDataType.RESOURCE_ID) {
+                try {
+                    int resourceId = Integer.parseInt(coverData);
+                    imageView.setImageResource(resourceId);
+                } catch (NumberFormatException e) {
                     imageView.setImageResource(R.drawable.ic_book_placeholder);
-                    break;
+                    Log.e("BookAdapter", "Invalid resource ID: " + coverData);
+                }
+            } else if (coverDataType == CoverDataType.URI) {
+                imageView.setImageURI(Uri.parse(coverData));
+            } else if (coverDataType == CoverDataType.PDF_PAGE) {
+                //todo 实现根据pdf第一页生成封面
+                imageView.setImageResource(R.drawable.ic_pdf_placeholder);
+            } else {
+                imageView.setImageResource(R.drawable.ic_book_placeholder);
             }
         } else {
             imageView.setImageResource(R.drawable.ic_book_placeholder);
@@ -114,7 +129,6 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
     }
 
     private Bitmap generateCoverBitmap(String text, int width, int height) {
-        // 实现文本生成封面的逻辑 (与之前的代码相同)
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         canvas.drawColor(Color.WHITE);
@@ -122,11 +136,16 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
         textPaint.setColor(Color.BLACK);
         textPaint.setTextSize(14f);
         textPaint.setTextAlign(Paint.Align.CENTER);
-        Rect bounds = new Rect();
-        textPaint.getTextBounds(text, 0, text.length(), bounds);
-        int x = width / 2;
-        int y = (height / 2) + (bounds.height() / 2);
-        canvas.drawText(text, x, y, textPaint);
+        String[] lines = text.split("\n");
+        StringBuilder sb = new StringBuilder();
+        int lineCount = Math.min(lines.length, 3);
+        for (int i = 0; i < lineCount; i++) {
+            sb.append(lines[i]).append("\n");
+        }
+        String displayText = sb.toString().trim();
+        Paint.FontMetrics fm = textPaint.getFontMetrics();
+        float baseline = height / 2f - (fm.top + fm.bottom) / 2f;
+        canvas.drawText(displayText, width / 2f, baseline, textPaint);
         return bitmap;
     }
 
@@ -137,6 +156,14 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
         Button unreadButton;
         Button readButton;
         Button favoriteButton;
+        ViewHolder(View view) {
+            bookImageView = view.findViewById(R.id.bookImageView);
+            bookTitleTextView = view.findViewById(R.id.bookTitleTextView);
+            unreadButton = view.findViewById(R.id.markAsUnreadButton);
+            readButton = view.findViewById(R.id.markAsReadButton);
+            favoriteButton = view.findViewById(R.id.markAsFavoriteButton);
+            view.setTag(this);
+        }
     }
 
 }

@@ -28,6 +28,9 @@ public class BookDao {
         values.put(BookDatabaseHelper.COLUMN_URI, bookInfo.uri().toString());
         values.put(BookDatabaseHelper.COLUMN_COVER_DATA, bookInfo.coverData());
         values.put(BookDatabaseHelper.COLUMN_COVER_DATA_TYPE, bookInfo.coverDataType() != null ? bookInfo.coverDataType().toString() : null);
+        values.put(BookDatabaseHelper.COLUMN_IS_READ, bookInfo.isRead() ? 1 : 0);
+        values.put(BookDatabaseHelper.COLUMN_IS_UNREAD, bookInfo.isUnread() ? 1 : 0);
+        values.put(BookDatabaseHelper.COLUMN_IS_FAVORITE, bookInfo.isFavorite() ? 1 : 0);
 
         long id = db.insert(BookDatabaseHelper.TABLE_BOOKS, null, values);
         db.close();
@@ -38,7 +41,7 @@ public class BookDao {
         List<BookInfo> bookList = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         Cursor cursor = db.query(BookDatabaseHelper.TABLE_BOOKS,
-                new String[]{BookDatabaseHelper.COLUMN_TITLE, BookDatabaseHelper.COLUMN_URI, BookDatabaseHelper.COLUMN_COVER_DATA, BookDatabaseHelper.COLUMN_COVER_DATA_TYPE},
+                null, // Select all columns
                 null, null, null, null, null);
 
         if (cursor != null && cursor.moveToFirst()) {
@@ -56,13 +59,53 @@ public class BookDao {
                         Log.e("BookDao", "Unknown CoverDataType: " + coverDataTypeString);
                     }
                 }
-                bookList.add(new BookInfo(title, uri,coverData,coverDataType));
+
+                boolean isRead = cursor.getInt(cursor.getColumnIndexOrThrow(BookDatabaseHelper.COLUMN_IS_READ)) == 1;
+                boolean isUnread = cursor.getInt(cursor.getColumnIndexOrThrow(BookDatabaseHelper.COLUMN_IS_UNREAD)) == 1;
+                boolean isFavorite = cursor.getInt(cursor.getColumnIndexOrThrow(BookDatabaseHelper.COLUMN_IS_FAVORITE)) == 1;
+
+                bookList.add(new BookInfo(title, uri,coverData,coverDataType, isRead, isUnread, isFavorite));
             } while (cursor.moveToNext());
             cursor.close();
         }
         db.close();
         return bookList;
     }
+
+    public void updateBookReadStatus(String title, boolean isRead) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(BookDatabaseHelper.COLUMN_IS_READ, isRead ? 1 : 0);
+        int rowsAffected = db.update(BookDatabaseHelper.TABLE_BOOKS, values,
+                BookDatabaseHelper.COLUMN_TITLE + " = ?",
+                new String[]{title});
+        db.close();
+        Log.d("BookDao", "Updated read status for " + title + ", rows affected: " + rowsAffected);
+    }
+
+    public void updateBookUnreadStatus(String title, boolean isUnread) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(BookDatabaseHelper.COLUMN_IS_UNREAD, isUnread ? 1 : 0);
+        int rowsAffected = db.update(BookDatabaseHelper.TABLE_BOOKS, values,
+                BookDatabaseHelper.COLUMN_TITLE + " = ?",
+                new String[]{title});
+        db.close();
+        Log.d("BookDao", "Updated unread status for " + title + ", rows affected: " + rowsAffected);
+    }
+
+    public void updateBookFavoriteStatus(String title, boolean isFavorite) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(BookDatabaseHelper.COLUMN_IS_FAVORITE, isFavorite ? 1 : 0);
+        int rowsAffected = db.update(BookDatabaseHelper.TABLE_BOOKS, values,
+                BookDatabaseHelper.COLUMN_TITLE + " = ?",
+                new String[]{title});
+        db.close();
+        Log.d("BookDao", "Updated favorite status for " + title + ", rows affected: " + rowsAffected);
+    }
+
+
     // 根据书籍标题删除书籍
     public int deleteBook(String title) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();

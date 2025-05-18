@@ -13,8 +13,11 @@
     <string name="import_failed">导入失败</string>
     <string name="permission_denied">没有权限访问该目录</string>
     <string name="mark_unread_toast">标记为待读</string>
+    <string name="unmark_unread_toast">移出待读</string>
     <string name="mark_read_toast">标记为已读</string>
+    <string name="unmark_read_toast">移出已读</string>
     <string name="mark_favorite_toast">标记为收藏</string>
+    <string name="mark_unFavorite_toast">移出收藏</string>
     <string name="default_cover_text">无法生成封面</string>
     <string name="book_cover">书本封面</string>
     <string name="confirm_delete">确认删除</string>
