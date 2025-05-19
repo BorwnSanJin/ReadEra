@@ -3,11 +3,7 @@ package com.example.readera.Adapter;
 import static com.example.readera.Enum.CoverDataType.TEXT;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Rect;
+import com.example.readera.utiles.CoverUtils;
 import android.net.Uri;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -21,7 +17,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.example.readera.BookInfo;
+import com.example.readera.model.BookInfo;
 import com.example.readera.Dao.BookDao;
 import com.example.readera.Enum.CoverDataType;
 import com.example.readera.R;
@@ -60,14 +56,14 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
     }
 
     private void setupBookItemView(ViewHolder holder, BookInfo currentBook) {
-        holder.bookTitleTextView.setText(currentBook.title());
-        loadCover(holder.bookImageView, currentBook.coverData(), currentBook.coverDataType());
+        holder.bookTitleTextView.setText(currentBook.getTitle());
+        loadCover(holder.bookImageView, currentBook);
 
         holder.unreadButton.setSelected(currentBook.isUnread());
         holder.readButton.setSelected(currentBook.isRead());
         holder.favoriteButton.setSelected(currentBook.isFavorite());
 
-        final String bookTitle = currentBook.title();
+        final String bookTitle = currentBook.getTitle();
 
         holder.unreadButton.setOnClickListener(v -> {
             boolean isUnread = !currentBook.isUnread();
@@ -103,21 +99,21 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
         });
     }
 
-    private void loadCover(ImageView imageView, String coverData, CoverDataType coverDataType) {
-        if (coverData != null && coverDataType != null) {
-            if (coverDataType == TEXT) {
-                imageView.setImageBitmap(generateCoverBitmap(coverData, COVER_WIDTH, COVER_HEIGHT));
-            } else if (coverDataType == CoverDataType.RESOURCE_ID) {
+    private void loadCover(ImageView imageView, BookInfo bookInfo) {
+        if (bookInfo != null ) {
+            if (bookInfo.coverDataType() == TEXT) {
+                imageView.setImageBitmap(CoverUtils.generateCoverBitmap(bookInfo.getTitle(), COVER_WIDTH, COVER_HEIGHT));
+            } else if (bookInfo.coverDataType() == CoverDataType.RESOURCE_ID) {
                 try {
-                    int resourceId = Integer.parseInt(coverData);
+                    int resourceId = Integer.parseInt(bookInfo.coverData());
                     imageView.setImageResource(resourceId);
                 } catch (NumberFormatException e) {
                     imageView.setImageResource(R.drawable.ic_book_placeholder);
-                    Log.e("BookAdapter", "Invalid resource ID: " + coverData);
+                    Log.e("BookAdapter", "Invalid resource ID: " +  bookInfo.coverData());
                 }
-            } else if (coverDataType == CoverDataType.URI) {
-                imageView.setImageURI(Uri.parse(coverData));
-            } else if (coverDataType == CoverDataType.PDF_PAGE) {
+            } else if (bookInfo.coverDataType() == CoverDataType.URI) {
+                imageView.setImageURI(Uri.parse(bookInfo.coverData()));
+            } else if (bookInfo.coverDataType() == CoverDataType.PDF_PAGE) {
                 //todo 实现根据pdf第一页生成封面
                 imageView.setImageResource(R.drawable.ic_pdf_placeholder);
             } else {
@@ -128,26 +124,7 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
         }
     }
 
-    private Bitmap generateCoverBitmap(String text, int width, int height) {
-        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        canvas.drawColor(Color.WHITE);
-        Paint textPaint = new Paint();
-        textPaint.setColor(Color.BLACK);
-        textPaint.setTextSize(14f);
-        textPaint.setTextAlign(Paint.Align.CENTER);
-        String[] lines = text.split("\n");
-        StringBuilder sb = new StringBuilder();
-        int lineCount = Math.min(lines.length, 3);
-        for (int i = 0; i < lineCount; i++) {
-            sb.append(lines[i]).append("\n");
-        }
-        String displayText = sb.toString().trim();
-        Paint.FontMetrics fm = textPaint.getFontMetrics();
-        float baseline = height / 2f - (fm.top + fm.bottom) / 2f;
-        canvas.drawText(displayText, width / 2f, baseline, textPaint);
-        return bitmap;
-    }
+
 
     static class ViewHolder {
         ImageView bookImageView;

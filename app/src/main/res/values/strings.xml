@@ -26,4 +26,6 @@
     <string name="cancel">取消</string>
     <string name="book_deleted">%s 已删除</string>
     <string name="delete_failed">删除失败</string>
+    <string name="book_already_exists">%1$s 已存在</string>
+    <string name="no_new_books_imported">没有图书导入</string>
 </resources>

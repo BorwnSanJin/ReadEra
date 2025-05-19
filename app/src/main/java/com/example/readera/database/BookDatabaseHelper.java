@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 public class BookDatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "books.db";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
 
     public static final String TABLE_BOOKS = "books";
     public static final String COLUMN_ID = "_id";
@@ -16,6 +16,9 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_IS_READ = "is_read";       // 已读状态
     public static final String COLUMN_IS_UNREAD = "is_unread";   // 未读状态
     public static final String COLUMN_IS_FAVORITE = "is_favorite"; // 收藏状态
+    public static final String COLUMN_FILE_SIZE = "file_size";//文件大小
+    public static final String COLUMN_LAST_MODIFIED = "last_modified";//最后修改
+    public static final String COLUMN_FILE_HASH = "file_hash"; // 文件hash
 
     private static final String SQL_CREATE_BOOKS =
             "CREATE TABLE " + TABLE_BOOKS + " (" +
@@ -26,7 +29,10 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_COVER_DATA_TYPE + " TEXT,"+
                     COLUMN_IS_READ + " INTEGER DEFAULT 0," +   // 默认未读
                     COLUMN_IS_UNREAD + " INTEGER DEFAULT 0," +   // 默认是未读
-                    COLUMN_IS_FAVORITE + " INTEGER DEFAULT 0);"; // 默认未收藏
+                    COLUMN_IS_FAVORITE + " INTEGER DEFAULT 0,"+ // 默认未收藏
+                    COLUMN_FILE_SIZE + " INTEGER DEFAULT -1," +
+                    COLUMN_LAST_MODIFIED + " INTEGER DEFAULT -1," +
+                    COLUMN_FILE_HASH + " TEXT);";
             ;
 
 
@@ -43,14 +49,7 @@ public class BookDatabaseHelper extends SQLiteOpenHelper {
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         // 当数据库版本升级时，你需要执行相应的更新操作
         // 这里简单地删除旧表并创建新表，实际应用中需要更谨慎地处理用户数据
-//        db.execSQL("DROP TABLE IF EXISTS " + TABLE_BOOKS);
-//        onCreate(db);
-        // 当数据库版本升级时，添加新的列
-        if (oldVersion < 3) {
-            db.execSQL("ALTER TABLE " + TABLE_BOOKS + " ADD COLUMN " + COLUMN_IS_READ + " INTEGER DEFAULT 0");
-            db.execSQL("ALTER TABLE " + TABLE_BOOKS + " ADD COLUMN " + COLUMN_IS_UNREAD + " INTEGER DEFAULT 1");
-            db.execSQL("ALTER TABLE " + TABLE_BOOKS + " ADD COLUMN " + COLUMN_IS_FAVORITE + " INTEGER DEFAULT 0");
-        }
-
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_BOOKS);
+        onCreate(db);
     }
 }
