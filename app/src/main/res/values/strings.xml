@@ -4,6 +4,14 @@
     <string name="mark_as_read">标记为已读</string>
     <string name="mark_as_favorite">标记为收藏</string>>
     <string name="my_bookshelf">我的书架</string>
+    <string name="read_books">已读</string>
+    <string name="unread_books">待读</string>
+    <string name="favorite_books">收藏</string>
+    <string name="settings">设置</string>
+    <string name="no_shelf_books">书库还没有书籍哦！</string>
+    <string name="no_read_books">还没有已读的书籍哦！</string>
+    <string name="no_unread_books">还没有待读的书籍哦！</string>
+    <string name="no_favorite_books">还没有收藏的书籍哦！</string>
     <string name="navigation_drawer_open">打开导航栏</string>
     <string name="navigation_drawer_close">关闭导航栏</string>
     <string name="settings_function_developing">设置功能待开发</string>

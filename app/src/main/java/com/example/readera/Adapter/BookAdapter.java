@@ -3,6 +3,8 @@ package com.example.readera.Adapter;
 import static com.example.readera.Enum.CoverDataType.TEXT;
 
 import android.content.Context;
+
+import com.example.readera.fragments.BookShelfFragment;
 import com.example.readera.utiles.CoverUtils;
 import android.net.Uri;
 import android.util.Log;
@@ -31,11 +33,13 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
 
     private final LayoutInflater inflater;
     private final BookDao bookDao; // 添加 BookDao 实例
+    private final BookShelfFragment.OnBookStatusChangeListener listener; // 添加接口引用
 
-    public BookAdapter(@NonNull Context context, List<BookInfo> books) {
+    public BookAdapter(@NonNull Context context, List<BookInfo> books, BookShelfFragment.OnBookStatusChangeListener listener) {
         super(context, R.layout.item_book,books);
         inflater = LayoutInflater.from(context);
         bookDao = new BookDao(context); // 初始化 BookDao
+        this.listener = listener; // 保存监听器实例
     }
 
     @NonNull
@@ -45,6 +49,7 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
        if(convertView == null){
            convertView = inflater.inflate(R.layout.item_book,parent,false);
            holder = new ViewHolder(convertView);
+           convertView.setTag(holder); // 设置tag
        }else {
            holder = (ViewHolder) convertView.getTag();
        }
@@ -73,7 +78,10 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
                 bookDao.updateBookReadStatus(bookTitle, false);
                 currentBook.setRead(false);
             }
-            notifyDataSetChanged();
+            // 触发回调，通知 Fragment 刷新列表
+            if (listener != null) {
+                listener.onBookStatusChanged();
+            }
             Toast.makeText(getContext(), isUnread ? R.string.mark_unread_toast : R.string.unmark_unread_toast, Toast.LENGTH_SHORT).show();
         });
 
@@ -85,7 +93,10 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
                 bookDao.updateBookUnreadStatus(bookTitle, false);
                 currentBook.setUnread(false);
             }
-            notifyDataSetChanged();
+            // 触发回调，通知 Fragment 刷新列表
+            if (listener != null) {
+                listener.onBookStatusChanged();
+            }
             Toast.makeText(getContext(), isRead ? R.string.mark_read_toast : R.string.unmark_read_toast, Toast.LENGTH_SHORT).show();
         });
 
@@ -94,11 +105,15 @@ public class BookAdapter extends ArrayAdapter<BookInfo> {
             bookDao.updateBookFavoriteStatus(bookTitle, isFavorite);
             currentBook.setFavorite(isFavorite);
             holder.favoriteButton.setSelected(isFavorite);
-            notifyDataSetChanged();
+            // 触发回调，通知 Fragment 刷新列表
+            if (listener != null) {
+                listener.onBookStatusChanged();
+            }
             Toast.makeText(getContext(), isFavorite ? R.string.mark_favorite_toast : R.string.mark_unFavorite_toast, Toast.LENGTH_SHORT).show();
         });
     }
 
+    //加载封面
     private void loadCover(ImageView imageView, BookInfo bookInfo) {
         if (bookInfo != null ) {
             if (bookInfo.coverDataType() == TEXT) {
