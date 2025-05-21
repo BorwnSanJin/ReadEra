@@ -15,18 +15,6 @@
         android:theme="@style/Theme.ReadEra"
         tools:targetApi="31">
         <activity
-            android:name=".FavoriteBooksActivity"
-            android:exported="false" />
-        <activity
-            android:name=".FavorityActivity"
-            android:exported="false" />
-        <activity
-            android:name=".UnreadBooksActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ReadBooksActivity"
-            android:exported="false" />
-        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>

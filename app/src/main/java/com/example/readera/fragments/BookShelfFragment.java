@@ -30,7 +30,6 @@ import com.example.readera.Adapter.BookAdapter;
 import com.example.readera.Dao.BookDao;
 import com.example.readera.Enum.CoverDataType;
 import com.example.readera.R;
-import com.example.readera.ReadingActivity;
 import com.example.readera.model.BookInfo;
 import com.example.readera.utiles.ReadingUtils;
 

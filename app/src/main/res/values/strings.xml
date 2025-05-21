@@ -36,4 +36,9 @@
     <string name="delete_failed">删除失败</string>
     <string name="book_already_exists">%1$s 已存在</string>
     <string name="no_new_books_imported">没有图书导入</string>
+    <string name="error_loading_content">无法加载小说内容</string>
+    <string name="error_loading_file_toast">读取文件失败</string>
+    <string name="file_end_toast">文件已读完</string>
+    <string name="unknown_error_toast">发生未知错误</string>
+    <string name="long_reader_content">这里是您的阅读内容，可以是很长的一段文本，用来模拟书籍内容。...</string>
 </resources>
