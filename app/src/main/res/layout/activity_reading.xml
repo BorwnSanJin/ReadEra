@@ -17,6 +17,51 @@
         android:clipToPadding="false" />
 
     <LinearLayout
+
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:layout_marginTop="?attr/actionBarSize"
+        android:layout_marginBottom="?attr/actionBarSize">
+
+        <View
+            android:id="@+id/left_tap_area"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:paddingTop="?attr/actionBarSize"
+            android:paddingBottom="?attr/actionBarSize"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@android:color/transparent"
+            android:contentDescription="上一页"/>
+
+        <View
+            android:id="@+id/center_tap_area"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:paddingTop="?attr/actionBarSize"
+            android:paddingBottom="?attr/actionBarSize"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@android:color/transparent"
+            android:contentDescription="显示/隐藏控制栏" />
+
+        <View
+            android:id="@+id/right_tap_area"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:paddingTop="?attr/actionBarSize"
+            android:paddingBottom="?attr/actionBarSize"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@android:color/transparent"
+            android:contentDescription="下一页"/>
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/top_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -125,40 +170,6 @@
 
     </LinearLayout>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="horizontal">
 
-        <View
-            android:id="@+id/left_tap_area"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="@android:color/transparent"
-            android:contentDescription="上一页"/>
-
-        <View
-            android:id="@+id/center_tap_area"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="@android:color/transparent"
-            android:contentDescription="显示/隐藏控制栏" />
-
-        <View
-            android:id="@+id/right_tap_area"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="@android:color/transparent"
-            android:contentDescription="下一页"/>
-    </LinearLayout>
 
 </FrameLayout>

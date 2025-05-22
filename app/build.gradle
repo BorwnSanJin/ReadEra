@@ -36,4 +36,6 @@ dependencies {
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
+    implementation 'androidx.viewpager2:viewpager2:1.0.0' // ViewPager2 库
+    implementation 'androidx.recyclerview:recyclerview:1.3.0' // RecyclerView 通常与 ViewPager2 一起使用
 }

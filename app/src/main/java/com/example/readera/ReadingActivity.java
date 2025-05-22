@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -30,6 +31,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.viewpager2.widget.ViewPager2; // 导入 ViewPager2
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -40,10 +42,10 @@ import java.nio.charset.StandardCharsets;
 public class ReadingActivity extends AppCompatActivity {
     private static final String TAG = "ReadingActivity";
 
-    private LinearLayout topBar;//顶部栏
-    private LinearLayout bottomBar;//底部栏
-    private ScrollView scrollViewContent;
-    private TextView tvReaderContent;//阅读内容
+    private LinearLayout topBar; // 顶部栏
+    private LinearLayout bottomBar; // 底部栏
+    private ImageView ivBack; // 添加这个 ImageView 引用
+    private ViewPager2 vp2NovelPages; // ViewPager2 引用
 
     private boolean isBarsVisible = false;
     private GestureDetector gestureDetector;
@@ -72,12 +74,18 @@ public class ReadingActivity extends AppCompatActivity {
         setFullScreenMode();
 
         setContentView(R.layout.activity_reading);
-        //初始化
+        // 初始化视图组件
         topBar = findViewById(R.id.top_bar);
         bottomBar = findViewById(R.id.bottom_bar);
+        vp2NovelPages = findViewById(R.id.vp2_novel_pages); // 初始化 ViewPager2
+
+        // 初始化点击区域
+        View leftTapArea = findViewById(R.id.left_tap_area);
+        View centerTapArea = findViewById(R.id.center_tap_area);
+        View rightTapArea = findViewById(R.id.right_tap_area);
 
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.reader_root_layout),(v, insets) -> {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.reader_root_layout), (v, insets) -> {
             Insets systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
 
             // 只有当获取到的高度大于0时才更新我们的“固定”高度
@@ -100,14 +108,6 @@ public class ReadingActivity extends AppCompatActivity {
                     topBar.getPaddingBottom()
             );
 
-            // 确保 scrollViewContent 的内容始终在状态栏下方且不被导航栏遮挡
-            scrollViewContent.setPadding(
-                    scrollViewContent.getPaddingLeft(), // 保持 XML 中的左右 padding
-                    fixedStatusBarHeight, // 顶部内边距等于实际状态栏高度
-                    scrollViewContent.getPaddingRight(),
-                    fixedNavigationBarHeight  // 底部内边距等于实际导航栏高度
-            );
-
             // 在布局完成后，设置 topBar 的初始隐藏位置
             // 确保 topBar 的高度已经确定，这样 translationY 才准确
             topBar.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -125,83 +125,55 @@ public class ReadingActivity extends AppCompatActivity {
         });
 
 
-
-
-        // 3. 初始化手势检测器
+        // 3. 初始化手势检测器 - 保留此项，但也要为点击区域设置 OnClickListener
+        // 如果您完全依赖点击区域进行交互，可以移除 GestureDetector.SimpleOnGestureListener 中的 onSingleTapUp。
+        // 如果您希望一般屏幕点击也能切换菜单栏，则保留它。
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onSingleTapUp(MotionEvent e) {
-                toggleBarsVisibility();
-                return true;
+                // 这将捕获一般屏幕点击。
+                // 如果您只想通过中间点击区域切换，请移除此行。
+                // toggleBarsVisibility();
+                return true; // 返回 true 以消费事件
             }
         });
 
-        // 4. 将手势检测器应用于阅读内容区域
-        scrollViewContent.setOnTouchListener((v, event) -> gestureDetector.onTouchEvent(event));
+        // 为点击区域设置点击监听器
+        leftTapArea.setOnClickListener(v -> {
+            // 在 ViewPager2 中导航到上一页
+            int currentItem = vp2NovelPages.getCurrentItem();
+            if (currentItem > 0) {
+                vp2NovelPages.setCurrentItem(currentItem - 1);
+            } else {
+                Toast.makeText(this, "已经是第一页了", Toast.LENGTH_SHORT).show();
+            }
+        });
 
-        // 获取传递过来的文件 URI
+        centerTapArea.setOnClickListener(v -> {
+            // 切换菜单栏的可见性
+            toggleBarsVisibility();
+        });
+
+        rightTapArea.setOnClickListener(v -> {
+            // 在 ViewPager2 中导航到下一页
+            int currentItem = vp2NovelPages.getCurrentItem();
+            if (vp2NovelPages.getAdapter() != null && currentItem < vp2NovelPages.getAdapter().getItemCount() - 1) { // 假设适配器已设置且有项目
+                vp2NovelPages.setCurrentItem(currentItem + 1);
+            } else {
+                Toast.makeText(this, "已经是最后一页了", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // 获取返回按钮的引用并设置点击监听器
+        ivBack = findViewById(R.id.iv_back); // 初始化 ivBack
+        ivBack.setOnClickListener(v -> {
+            finish(); // 调用 onBackPressed() 来模拟系统返回行为
+        });
+
+
+        // 获取传递过来的文件 URI 与此请求无关，但保留在此处以供上下文参考。
         fileUri = getIntent().getParcelableExtra("FILE_URI");
-        if (fileUri != null) {
-            // 首次加载少量内容
-            loadNextChunk();
-        } else {
-            tvReaderContent.setText("无法加载小说内容");
-        }
-    }
 
-    private void loadNextChunk() {
-        synchronized (lock) {
-            if (isLoading || fileUri == null) {
-                return;
-            }
-            isLoading = true;
-        }
-
-        new Thread(() -> {
-            try (InputStream inputStream = getContentResolver().openInputStream(fileUri);
-                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream,StandardCharsets.UTF_8))) {
-
-                Log.d(TAG,"开始读取文件");
-                // 跳过已经读取的字节
-                // inputStream.skip(bytesRead) 在某些情况下可能无法跳过精确的字节数，
-                // 特别是对于字符编码文件。更稳健的方法是读取并丢弃字符。
-                long currentBytesRead = 0;
-                while (currentBytesRead < bytesRead) {
-                    int charCode = reader.read();
-                    if (charCode == -1) { // Reach end of stream
-                        Log.e(TAG, "跳过字节失败或已到达文件末尾");
-                        runOnUiThread(() -> isLoading = false);
-                        return;
-                    }
-                    currentBytesRead += String.valueOf((char) charCode).getBytes(StandardCharsets.UTF_8).length;
-                }
-
-                char[] buffer = new char[CHUNK_SIZE];
-                int charsRead;
-                StringBuilder chunkBuilder = new StringBuilder();
-
-                charsRead = reader.read(buffer);
-                if (charsRead > 0) {
-                    String chunk = new String(buffer, 0, charsRead);
-                    chunkBuilder.append(chunk);
-                    bytesRead += chunk.getBytes(StandardCharsets.UTF_8).length; // 更新已读取的字节数
-                    runOnUiThread(() -> {
-                        // 在 UI 线程更新 TextView，保持滚动位置
-                        int scrollY = scrollViewContent.getScrollY();
-                        tvReaderContent.append(chunkBuilder);
-                        scrollViewContent.scrollTo(0, scrollY); // 恢复滚动位置
-                    });
-                } else if (charsRead == -1) {
-                    runOnUiThread(() -> Toast.makeText(this, "文件已读完", Toast.LENGTH_SHORT).show());
-                }
-
-            } catch (Exception e) {
-                Log.e(TAG, "读取文件块失败: " + e.getMessage());
-                runOnUiThread(() -> Toast.makeText(this, "读取文件失败", Toast.LENGTH_SHORT).show());
-            } finally {
-                runOnUiThread(() -> isLoading = false);
-            }
-        }).start();
     }
 
     private void setFullScreenMode() {
@@ -238,7 +210,7 @@ public class ReadingActivity extends AppCompatActivity {
         if (windowInsetsController != null) {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars());
             // 设置状态栏颜色为顶部栏的颜色
-            getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.bar_color)); // 假设您在 colors.xml 中定义了 top_bar_color
+            getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.bar_color)); // 假设您在 colors.xml 中定义了 bar_color
             // 根据顶部栏颜色调整状态栏图标颜色
             // 如果顶部栏是浅色，状态栏图标应该是深色 (true)
             // 如果顶部栏是深色，状态栏图标应该是浅色 (false)
@@ -316,4 +288,12 @@ public class ReadingActivity extends AppCompatActivity {
         }
     }
 
+    // 如果您希望将一般屏幕点击事件分发给 GestureDetector，请添加此方法
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        // 如果您保留了 GestureDetector.SimpleOnGestureListener 中的一般屏幕点击行为，
+        // 则需要此方法将触摸事件传递给它。
+        // 如果您完全依赖于定义的点击区域，则可以移除此方法。
+        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
+    }
 }
