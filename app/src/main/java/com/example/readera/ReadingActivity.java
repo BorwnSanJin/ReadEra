@@ -3,196 +3,365 @@ package com.example.readera;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
-import android.content.SharedPreferences;
+import android.content.Context;
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.Window;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-import androidx.core.content.res.ResourcesCompat;
+import androidx.core.content.res.ResourcesCompat; // 用于字体
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
-import androidx.viewpager2.widget.ViewPager2; // 导入 ViewPager2
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
+
+import com.example.readera.Adapter.NovelPageAdapter;
+import com.example.readera.databinding.ActivityReadingBinding;
+import com.example.readera.utiles.TextPager;
+import com.example.readera.views.NovelPageView;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import static com.example.readera.Adapter.NovelPageAdapter.NovelPageViewHolder; // 导入内部类
 
 public class ReadingActivity extends AppCompatActivity {
     private static final String TAG = "ReadingActivity";
 
-    private LinearLayout topBar; // 顶部栏
-    private LinearLayout bottomBar; // 底部栏
-    private ImageView ivBack; // 添加这个 ImageView 引用
-    private ViewPager2 vp2NovelPages; // ViewPager2 引用
+    private ActivityReadingBinding binding;
+    private LinearLayout topBar;
+    private LinearLayout bottomBar;
+    private ImageView ivBack;
+    private ViewPager2 vp2NovelPages;
+    private TextView chapterTitle;
+    private TextView tvProgressPercentage;
+    private SeekBar sbProgress;
+    private ProgressBar loadingIndicator;
 
     private boolean isBarsVisible = false;
     private GestureDetector gestureDetector;
     private WindowInsetsControllerCompat windowInsetsController;
+
+    private final long ANIMATION_DURATION = 300;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private Runnable hideBarsRunnable;
+
+    private Uri fileUri;
+    private TextPager textPager;
+    private NovelPageAdapter pageAdapter;
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    // 阅读设置（匹配 NovelPageView 默认值或传递它们）
+    private int defaultTextSizeSp = 18;
+    private int defaultLineSpacingExtraDp = 4;
+    // 这些内边距是 NovelPageView *内部* 的，而不是 ViewPager2 的内边距
+    private int novelPageInternalPaddingLeftDp = 16;
+    private int novelPageInternalPaddingTopDp = 8;
+    private int novelPageInternalPaddingRightDp = 16;
+    private int novelPageInternalPaddingBottomDp = 8;
+
+    private boolean isPaginationTriggered = false;
+
     // 关键改变：用于存储状态栏和导航栏的“物理”高度
     // 这些值一旦获取到就不会变，因为它们代表了屏幕区域
     private int fixedStatusBarHeight = 0;
     private int fixedNavigationBarHeight = 0;
 
-    private final long ANIMATION_DURATION = 300; // 动画时长
-
-
-    private Uri fileUri;
-    private long bytesRead = 0;
-    private static final int CHUNK_SIZE = 1024 * 100; // 每次读取 100KB
-
-
-    private boolean isLoading = false;
-    private final Object lock = new Object(); // 用于同步加载状态
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. 设置全屏模式（沉浸式阅读）
         setFullScreenMode();
+        binding = ActivityReadingBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
-        setContentView(R.layout.activity_reading);
-        // 初始化视图组件
-        topBar = findViewById(R.id.top_bar);
-        bottomBar = findViewById(R.id.bottom_bar);
-        vp2NovelPages = findViewById(R.id.vp2_novel_pages); // 初始化 ViewPager2
+        topBar = binding.topBar;
+        bottomBar = binding.bottomBar;
+        vp2NovelPages = binding.vp2NovelPages;
+        chapterTitle = binding.chapterTitle;
+        tvProgressPercentage = binding.tvProgressPercentage;
+        sbProgress = binding.sbProgress;
+        loadingIndicator = binding.loadingIndicator;
 
-        // 初始化点击区域
-        View leftTapArea = findViewById(R.id.left_tap_area);
-        View centerTapArea = findViewById(R.id.center_tap_area);
-        View rightTapArea = findViewById(R.id.right_tap_area);
+        View leftTapArea = binding.leftTapArea;
+        View centerTapArea = binding.centerTapArea;
+        View rightTapArea = binding.rightTapArea;
 
+        ivBack = binding.ivBack;
+        ivBack.setOnClickListener(v -> finish());
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.reader_root_layout), (v, insets) -> {
+        binding.ivMore.setOnClickListener(v -> Toast.makeText(this, "更多功能", Toast.LENGTH_SHORT).show());
+        binding.ivSettings.setOnClickListener(v -> Toast.makeText(this, "设置", Toast.LENGTH_SHORT).show());
+        binding.ivBookmark.setOnClickListener(v -> Toast.makeText(this, "书签", Toast.LENGTH_SHORT).show());
+
+        fileUri = getIntent().getParcelableExtra("FILE_URI");
+        if (fileUri == null) {
+            Toast.makeText(this, "未找到文件内容，请选择文件", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+
+        //设置导航栏
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.reader_root_layout),(v,insets)->{
             Insets systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-
             // 只有当获取到的高度大于0时才更新我们的“固定”高度
-            // 这样可以确保我们记住的是实际的物理高度，而不是系统栏隐藏时的0
             if (systemBarsInsets.top > 0) {
                 fixedStatusBarHeight = systemBarsInsets.top;
             }
             if (systemBarsInsets.bottom > 0) {
                 fixedNavigationBarHeight = systemBarsInsets.bottom;
             }
-
-            Log.d(TAG, "OnApplyWindowInsetsListener: fixedStatusBarHeight=" + fixedStatusBarHeight
-                    + ", fixedNavigationBarHeight=" + fixedNavigationBarHeight);
-
-            // 确保 topBar 的内容始终在状态栏下方
+            // 1. 为 topBar 设置 padding：状态栏高度 + 刘海屏顶部高度
             topBar.setPadding(
                     topBar.getPaddingLeft(),
-                    fixedStatusBarHeight, // 使用实际状态栏高度
+                    fixedStatusBarHeight ,
                     topBar.getPaddingRight(),
                     topBar.getPaddingBottom()
             );
-
-            // 在布局完成后，设置 topBar 的初始隐藏位置
-            // 确保 topBar 的高度已经确定，这样 translationY 才准确
-            topBar.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-                @Override
-                public void onGlobalLayout() {
-                    if (topBar.getHeight() > 0) {
-                        if (!isBarsVisible) { // 仅在初始隐藏状态时设置
-                            topBar.setTranslationY(-topBar.getHeight());
-                        }
-                        topBar.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                    }
-                }
-            });
             return insets;
         });
 
 
-        // 3. 初始化手势检测器 - 保留此项，但也要为点击区域设置 OnClickListener
-        // 如果您完全依赖点击区域进行交互，可以移除 GestureDetector.SimpleOnGestureListener 中的 onSingleTapUp。
-        // 如果您希望一般屏幕点击也能切换菜单栏，则保留它。
+        showLoadingIndicator();
+
+        // 关键改变：确保在 ViewPager2 获得实际尺寸后再进行分页
+        // onGlobalLayoutListener 现在应该获取 ViewPager2 的尺寸
+        // 然后我们将计算 NovelPageView 的 *内部内容区域*。
+        vp2NovelPages.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                int vp2Width = vp2NovelPages.getWidth();
+                int vp2Height = vp2NovelPages.getHeight();
+
+                Log.d(TAG, "onGlobalLayout triggered. ViewPager2 Size: " + vp2Width + "x" + vp2Height);
+
+                // 只有当 ViewPager2 具有有效尺寸并且分页尚未触发时才进行分页
+                if (vp2Width > 0 && vp2Height > 0 && !isPaginationTriggered) {
+                    isPaginationTriggered = true; // 设置标志，防止重复触发
+                    Log.d(TAG, "Valid ViewPager2 dimensions obtained. Triggering loadAndPaginateText.");
+
+                    vp2NovelPages.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+
+                    // 计算 NovelPageView 中文本可用的内容区域
+                    // vp2NovelPages 的 paddingTop/Bottom 是用于整体布局的，
+                    // NovelPageView 的内部内边距在此基础上添加。
+                    // TextPager 的实际内容宽度/高度应为：
+                    // ViewPager2_宽度 - ViewPager2_水平内边距 - NovelPageView_水平内边距*2
+                    // ViewPager2_高度 - ViewPager2_垂直内边距 - NovelPageView_垂直内边距*2
+
+                    // 这些是应用于 activity_reading.xml 中 ViewPager2 本身的内边距
+                    int vp2HorizontalPadding = vp2NovelPages.getPaddingStart() + vp2NovelPages.getPaddingEnd();
+                    int vp2VerticalPadding = vp2NovelPages.getPaddingTop() + vp2NovelPages.getPaddingBottom();
+
+
+                    // 将 NovelPageView 的内部 DP 内边距转换为 PX
+                    int novelPageInternalPaddingPxHorizontal = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingLeftDp + novelPageInternalPaddingRightDp, getResources().getDisplayMetrics());
+                    int novelPageInternalPaddingPxVertical = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingTopDp + novelPageInternalPaddingBottomDp, getResources().getDisplayMetrics());
+
+                    // 计算 TextPager 的最终可用内容区域
+                    int actualContentWidthPx = vp2Width - vp2HorizontalPadding - novelPageInternalPaddingPxHorizontal;
+                    int actualContentHeightPx = vp2Height - vp2VerticalPadding - novelPageInternalPaddingPxVertical;
+
+
+                    Log.d(TAG, "为 TextPager 计算的内容区域: " + actualContentWidthPx + "x" + actualContentHeightPx);
+
+                    loadAndPaginateText(fileUri, actualContentWidthPx, actualContentHeightPx);
+                }
+            }
+        });
+
+
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onSingleTapUp(MotionEvent e) {
-                // 这将捕获一般屏幕点击。
-                // 如果您只想通过中间点击区域切换，请移除此行。
-                // toggleBarsVisibility();
-                return true; // 返回 true 以消费事件
+                return super.onSingleTapUp(e);
             }
         });
 
-        // 为点击区域设置点击监听器
         leftTapArea.setOnClickListener(v -> {
-            // 在 ViewPager2 中导航到上一页
-            int currentItem = vp2NovelPages.getCurrentItem();
-            if (currentItem > 0) {
-                vp2NovelPages.setCurrentItem(currentItem - 1);
-            } else {
-                Toast.makeText(this, "已经是第一页了", Toast.LENGTH_SHORT).show();
+            if(isBarsVisible){
+                hideBars();
+            }else {
+                int currentItem = vp2NovelPages.getCurrentItem();
+                if (currentItem > 0) {
+                    vp2NovelPages.setCurrentItem(currentItem - 1);
+                } else {
+                    Toast.makeText(this, "已经是第一页了", Toast.LENGTH_SHORT).show();
+                }
+
             }
         });
 
-        centerTapArea.setOnClickListener(v -> {
-            // 切换菜单栏的可见性
-            toggleBarsVisibility();
-        });
+        centerTapArea.setOnClickListener(v -> toggleBarsVisibility());
 
         rightTapArea.setOnClickListener(v -> {
-            // 在 ViewPager2 中导航到下一页
-            int currentItem = vp2NovelPages.getCurrentItem();
-            if (vp2NovelPages.getAdapter() != null && currentItem < vp2NovelPages.getAdapter().getItemCount() - 1) { // 假设适配器已设置且有项目
-                vp2NovelPages.setCurrentItem(currentItem + 1);
-            } else {
-                Toast.makeText(this, "已经是最后一页了", Toast.LENGTH_SHORT).show();
+            if(isBarsVisible){
+                hideBars();
+            }else {
+                if (pageAdapter != null && vp2NovelPages.getCurrentItem() < pageAdapter.getItemCount() - 1) {
+                    vp2NovelPages.setCurrentItem(vp2NovelPages.getCurrentItem() + 1);
+                } else {
+                    Toast.makeText(this, "已经是最后一页了", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+        });
+
+        sbProgress.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (fromUser && pageAdapter != null && pageAdapter.getItemCount() > 0) {
+                    int pageIndex = (int) (progress / (float) seekBar.getMax() * (pageAdapter.getItemCount() - 1));
+                    if (pageIndex < 0) pageIndex = 0;
+                    if (pageIndex >= pageAdapter.getItemCount()) pageIndex = pageAdapter.getItemCount() - 1;
+
+                    vp2NovelPages.setCurrentItem(pageIndex, false);
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
             }
         });
 
-        // 获取返回按钮的引用并设置点击监听器
-        ivBack = findViewById(R.id.iv_back); // 初始化 ivBack
-        ivBack.setOnClickListener(v -> {
-            finish(); // 调用 onBackPressed() 来模拟系统返回行为
+        vp2NovelPages.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                super.onPageSelected(position);
+                updateProgressUI(position);
+
+            }
         });
 
-
-        // 获取传递过来的文件 URI 与此请求无关，但保留在此处以供上下文参考。
-        fileUri = getIntent().getParcelableExtra("FILE_URI");
+        hideBarsImmediately();
 
     }
 
     private void setFullScreenMode() {
         Window window = getWindow();
-        // 让内容延伸到系统栏区域
         WindowCompat.setDecorFitsSystemWindows(window, false);
 
         windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
         if (windowInsetsController != null) {
-            // 默认隐藏状态栏和导航栏
             windowInsetsController.hide(WindowInsetsCompat.Type.systemBars());
-            // 设置系统栏行为：用户从边缘滑动可临时呼出系统栏
             windowInsetsController.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
 
-            // 初始设置状态栏为透明，确保内容在下方
             window.setStatusBarColor(Color.TRANSPARENT);
-            // 设置状态栏图标为深色，以适应默认的白色背景（如果您的阅读背景是深色，这里应设置为true）
             windowInsetsController.setAppearanceLightStatusBars(true);
         }
+    }
+
+    private void loadAndPaginateText(Uri uri, int contentWidthPx, int contentHeightPx) {
+        executorService.execute(() -> {
+            handler.post(this::showLoadingIndicator);
+
+            String fullText = readTextFromUri(this, uri);
+            if (fullText == null) {
+                handler.post(() -> {
+                    Toast.makeText(ReadingActivity.this, "读取文件失败！", Toast.LENGTH_LONG).show();
+                    finish();
+                    hideLoadingIndicator();
+                });
+                return;
+            }
+
+            textPager = new TextPager(this, fullText);
+            textPager.setTextSize(defaultTextSizeSp);
+            textPager.setLineSpacingExtra(defaultLineSpacingExtraDp);
+            textPager.setVisibleArea(contentWidthPx, contentHeightPx);
+            textPager.paginate();
+
+            final List<String> pages = textPager.getPages();
+
+            handler.post(() -> {
+                if (pages.isEmpty()) {
+                    Toast.makeText(ReadingActivity.this, "小说内容为空或无法分页！", Toast.LENGTH_LONG).show();
+                    finish();
+                    hideLoadingIndicator();
+                    return;
+                }
+
+                pageAdapter = new NovelPageAdapter(pages);
+                vp2NovelPages.setAdapter(pageAdapter);
+                updateProgressUI(0);
+
+                hideLoadingIndicator();
+
+                // 通过适配器或获取当前视图设置初始页面视图设置
+                // 这将把字体和内边距应用到 NovelPageView 实例
+                // 获取 ViewPager2 内部的 RecyclerView
+                RecyclerView recyclerView = (RecyclerView) vp2NovelPages.getChildAt(0);
+                NovelPageViewHolder firstHolder = (NovelPageViewHolder) recyclerView.findViewHolderForAdapterPosition(0);
+                if (firstHolder != null) {
+                    applyNovelPageViewSettings(firstHolder.novelPageView);
+                } else {
+                    // 如果第一个视图不立即可用（例如，由于缓存），
+                    // 设置将在绑定时应用。
+                    // 确保 NovelPageAdapter 的 onBindViewHolder 调用 setPageText
+                    // 这反过来会触发 NovelPageView 中的 recreateStaticLayout。
+                    // 或者，如果您需要将通用设置应用于所有视图，
+                    // 考虑在 NovelPageAdapter 的 onCreateViewHolder 中执行此操作
+                    // 或维护一个通用设置对象。
+                }
+            });
+        });
+    }
+
+    private String readTextFromUri(Context context, Uri uri) {
+        StringBuilder stringBuilder = new StringBuilder();
+        try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                stringBuilder.append(line).append("\n");
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "读取文件失败 (UTF-8): " + e.getMessage());
+            try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "GBK"))) {
+                stringBuilder.setLength(0);
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    stringBuilder.append(line).append("\n");
+                }
+                Log.d(TAG, "尝试GBK编码读取成功。");
+                return stringBuilder.toString();
+            } catch (IOException e2) {
+                Log.e(TAG, "尝试GBK编码失败: " + e2.getMessage());
+                return null;
+            }
+        }
+        return stringBuilder.toString();
     }
 
     private void toggleBarsVisibility() {
@@ -206,61 +375,50 @@ public class ReadingActivity extends AppCompatActivity {
     private void showBars() {
         isBarsVisible = true;
 
-        // 1. 显示系统栏（状态栏和导航栏）
         if (windowInsetsController != null) {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars());
-            // 设置状态栏颜色为顶部栏的颜色
-            getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.bar_color)); // 假设您在 colors.xml 中定义了 bar_color
-            // 根据顶部栏颜色调整状态栏图标颜色
-            // 如果顶部栏是浅色，状态栏图标应该是深色 (true)
-            // 如果顶部栏是深色，状态栏图标应该是浅色 (false)
-            windowInsetsController.setAppearanceLightStatusBars(false); // 示例：如果顶部栏是灰色/深色，图标应为浅色
+            getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.bar_color));
+            windowInsetsController.setAppearanceLightStatusBars(false);
         }
 
-        // 2. 顶部栏动画：从上方滑下
         topBar.setVisibility(View.VISIBLE);
-        // 使用实际高度来计算偏移，确保从屏幕顶部完全滑入
-        topBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED); // 强制测量以获取高度
+        topBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        // 动画是从完全隐藏位置开始的
         ObjectAnimator topAnimator = ObjectAnimator.ofFloat(topBar, "translationY", -topBar.getMeasuredHeight(), 0f);
         topAnimator.setDuration(ANIMATION_DURATION);
         topAnimator.start();
 
-        // 3. 底部栏动画：从下方滑上
         bottomBar.setVisibility(View.VISIBLE);
-        // 使用实际高度来计算偏移，确保从屏幕底部完全滑入
-        bottomBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED); // 强制测量以获取高度
+        bottomBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        // 动画是从完全隐藏位置开始的
         ObjectAnimator bottomAnimator = ObjectAnimator.ofFloat(bottomBar, "translationY", bottomBar.getMeasuredHeight(), 0f);
         bottomAnimator.setDuration(ANIMATION_DURATION);
         bottomAnimator.start();
+
+
     }
 
     private void hideBars() {
         isBarsVisible = false;
+        handler.removeCallbacks(hideBarsRunnable);
 
-        // 1. 顶部栏动画：向上滑出屏幕
-        // 使用实际高度来计算偏移
-        topBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED); // 强制测量以获取高度
+        topBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         ObjectAnimator topAnimator = ObjectAnimator.ofFloat(topBar, "translationY", 0f, -topBar.getMeasuredHeight());
         topAnimator.setDuration(ANIMATION_DURATION);
         topAnimator.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
                 topBar.setVisibility(View.GONE);
-                // 动画结束后隐藏系统栏
                 if (windowInsetsController != null) {
                     windowInsetsController.hide(WindowInsetsCompat.Type.systemBars());
-                    // 隐藏后将状态栏颜色设置回透明
                     getWindow().setStatusBarColor(Color.TRANSPARENT);
-                    // 隐藏后状态栏图标颜色设置为深色（适应白色背景）
                     windowInsetsController.setAppearanceLightStatusBars(true);
                 }
             }
         });
         topAnimator.start();
 
-        // 2. 底部栏动画：向下滑出屏幕
-        // 使用实际高度来计算偏移
-        bottomBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED); // 强制测量以获取高度
+        bottomBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         ObjectAnimator bottomAnimator = ObjectAnimator.ofFloat(bottomBar, "translationY", 0f, bottomBar.getMeasuredHeight());
         bottomAnimator.setDuration(ANIMATION_DURATION);
         bottomAnimator.addListener(new AnimatorListenerAdapter() {
@@ -272,14 +430,83 @@ public class ReadingActivity extends AppCompatActivity {
         bottomAnimator.start();
     }
 
-    // 在 onResume 确保在 Activity 返回时重新进入全屏模式
+
+    private void hideBarsImmediately() {
+        handler.removeCallbacks(hideBarsRunnable);
+        if (topBar != null) topBar.setVisibility(View.GONE);
+        if (bottomBar != null) bottomBar.setVisibility(View.GONE);
+        isBarsVisible = false;
+        if (windowInsetsController != null) {
+            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars());
+            getWindow().setStatusBarColor(Color.TRANSPARENT);
+            windowInsetsController.setAppearanceLightStatusBars(true);
+        }
+    }
+
+    private void updateProgressUI(int currentPage) {
+        if (pageAdapter == null || pageAdapter.getItemCount() == 0) {
+            tvProgressPercentage.setText("0.0%");
+            sbProgress.setProgress(0);
+            chapterTitle.setText("无内容");
+            return;
+        }
+
+        int totalPages = pageAdapter.getItemCount();
+        chapterTitle.setText("第 " + (currentPage + 1) + " 页 / 共 " + totalPages + " 页");
+        sbProgress.setMax(totalPages - 1);
+        sbProgress.setProgress(currentPage);
+
+        double percentage = (currentPage + 1.0) / totalPages * 100.0;
+        tvProgressPercentage.setText(String.format("%.1f%%", percentage));
+    }
+
+    private void showLoadingIndicator() {
+        if (loadingIndicator != null) {
+            loadingIndicator.setVisibility(View.VISIBLE);
+            Log.d(TAG, "Loading indicator set to VISIBLE.");
+        }
+    }
+
+    private void hideLoadingIndicator() {
+        if (loadingIndicator != null) {
+            loadingIndicator.setVisibility(View.GONE);
+            Log.d(TAG, "Loading indicator set to GONE.");
+        }
+    }
+
+    // 新的辅助方法，用于将设置应用于 NovelPageView
+    private void applyNovelPageViewSettings(NovelPageView pageView) {
+        if (pageView != null) {
+            // 如果您有字体，请应用它
+            // 确保 R.font.your_font_name 存在，否则使用系统默认字体
+            try {
+                pageView.setTypeface(ResourcesCompat.getFont(this, R.font.serif));
+            } catch (Exception e) {
+                Log.e(TAG, "字体未找到或加载字体错误: " + e.getMessage());
+                pageView.setTypeface(null); // 使用默认系统字体
+            }
+
+            pageView.setTextSize(defaultTextSizeSp);
+            pageView.setLineSpacingExtra(defaultLineSpacingExtraDp);
+            // 将 DP 转换为 PX 以进行内部内边距设置
+            pageView.setPagePadding(
+                    (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingLeftDp, getResources().getDisplayMetrics()),
+                    (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingTopDp, getResources().getDisplayMetrics()),
+                    (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingRightDp, getResources().getDisplayMetrics()),
+                    (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingBottomDp, getResources().getDisplayMetrics())
+            );
+            // 您也可以在这里设置文本颜色或使其可配置
+            pageView.setTextColor(ContextCompat.getColor(this, android.R.color.black)); // 示例：黑色文本
+        }
+    }
+
+
     @Override
     protected void onResume() {
         super.onResume();
         setFullScreenMode();
     }
 
-    // 在 onWindowFocusChanged 确保在焦点变化时保持全屏模式
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
@@ -288,12 +515,18 @@ public class ReadingActivity extends AppCompatActivity {
         }
     }
 
-    // 如果您希望将一般屏幕点击事件分发给 GestureDetector，请添加此方法
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        // 如果您保留了 GestureDetector.SimpleOnGestureListener 中的一般屏幕点击行为，
-        // 则需要此方法将触摸事件传递给它。
-        // 如果您完全依赖于定义的点击区域，则可以移除此方法。
         return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 即使不再直接调用 `hideBarsWithDelay`，最好还是移除回调
+        if (handler != null && hideBarsRunnable != null) {
+            handler.removeCallbacks(hideBarsRunnable);
+        }
+        executorService.shutdownNow();
     }
 }
