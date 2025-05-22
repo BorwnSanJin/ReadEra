@@ -75,8 +75,7 @@ public class ReadingActivity extends AppCompatActivity {
         //初始化
         topBar = findViewById(R.id.top_bar);
         bottomBar = findViewById(R.id.bottom_bar);
-        scrollViewContent = findViewById(R.id.scroll_view_content);
-        tvReaderContent = findViewById(R.id.tv_reader_content);
+
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.reader_root_layout),(v, insets) -> {
             Insets systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -239,7 +238,7 @@ public class ReadingActivity extends AppCompatActivity {
         if (windowInsetsController != null) {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars());
             // 设置状态栏颜色为顶部栏的颜色
-            getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.top_bar_color)); // 假设您在 colors.xml 中定义了 top_bar_color
+            getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.bar_color)); // 假设您在 colors.xml 中定义了 top_bar_color
             // 根据顶部栏颜色调整状态栏图标颜色
             // 如果顶部栏是浅色，状态栏图标应该是深色 (true)
             // 如果顶部栏是深色，状态栏图标应该是浅色 (false)

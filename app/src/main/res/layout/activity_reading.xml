@@ -8,32 +8,20 @@
     android:background="@android:color/white"
     tools:context=".ReadingActivity">
 
-    <ScrollView
-        android:id="@+id/scroll_view_content"
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/vp2_novel_pages"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:clickable="true"
-        android:focusable="true">
-
-        <TextView
-            android:id="@+id/tv_reader_content"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textSize="18sp"
-            android:lineSpacingExtra="8dp"
-            android:textColor="@android:color/black"
-            tools:text="阅读内容示例" />
-    </ScrollView>
+        android:paddingTop="?attr/actionBarSize"
+        android:paddingBottom="?attr/actionBarSize"
+        android:clipToPadding="false" />
 
     <LinearLayout
         android:id="@+id/top_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="#A6A6A6"
+        android:background="@color/bar_color"
         android:elevation="4dp"
         android:visibility="gone"
         tools:visibility="visible">
@@ -55,6 +43,7 @@
                 app:tint="@android:color/white" />
 
             <TextView
+                android:id="@+id/chapter_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -80,7 +69,7 @@
         android:layout_height="?attr/actionBarSize"
         android:layout_gravity="bottom"
         android:orientation="horizontal"
-        android:background="#A6A6A6"
+        android:background="@color/bar_color"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
@@ -96,14 +85,35 @@
             android:contentDescription="设置"
             app:tint="@android:color/white" />
 
-        <TextView
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="进度 50%"
-            android:textColor="@android:color/white"
-            android:textSize="16sp"
-            android:gravity="center" />
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp">
+
+            <SeekBar
+                android:id="@+id/sb_progress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:progress="50"
+                android:max="100"
+                android:thumbTint="@android:color/white"
+                android:progressTint="@android:color/white"
+                android:contentDescription="阅读进度" />
+
+            <TextView
+                android:id="@+id/tv_progress_percentage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:layout_marginTop="4dp"
+                tools:text="0.0%"
+                />
+        </LinearLayout>
 
         <ImageView
             android:id="@+id/iv_bookmark"
@@ -113,6 +123,42 @@
             android:contentDescription="书签"
             app:tint="@android:color/white" />
 
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <View
+            android:id="@+id/left_tap_area"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@android:color/transparent"
+            android:contentDescription="上一页"/>
+
+        <View
+            android:id="@+id/center_tap_area"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@android:color/transparent"
+            android:contentDescription="显示/隐藏控制栏" />
+
+        <View
+            android:id="@+id/right_tap_area"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@android:color/transparent"
+            android:contentDescription="下一页"/>
     </LinearLayout>
 
 </FrameLayout>

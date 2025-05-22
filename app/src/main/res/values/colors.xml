@@ -3,6 +3,6 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="dodger_blue">#1E90FF</color>
-    <color name="top_bar_color">#A6A6A6</color>
+    <color name="bar_color">#6750A4</color>
     <color name="reader_background">#f0f0f0</color>
 </resources>
