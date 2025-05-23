@@ -36,6 +36,9 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.readera.Adapter.NovelPageAdapter;
 import com.example.readera.databinding.ActivityReadingBinding;
+import com.example.readera.utiles.ReadingSettingsManager;
+import com.example.readera.utiles.SystemUiController;
+import com.example.readera.utiles.TextFileReader;
 import com.example.readera.utiles.TextPager;
 import com.example.readera.views.NovelPageView;
 
@@ -65,40 +68,37 @@ public class ReadingActivity extends AppCompatActivity {
 
     private boolean isBarsVisible = false;
     private GestureDetector gestureDetector;
-    private WindowInsetsControllerCompat windowInsetsController;
+    private SystemUiController systemUiController; // 使用新类
 
     private final long ANIMATION_DURATION = 300;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private Runnable hideBarsRunnable;
 
     private Uri fileUri;
     private TextPager textPager;
     private NovelPageAdapter pageAdapter;
     private ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    // 阅读设置（匹配 NovelPageView 默认值或传递它们）
-    private int defaultTextSizeSp = 18;
-    private int defaultLineSpacingExtraDp = 4;
-    // 这些内边距是 NovelPageView *内部* 的，而不是 ViewPager2 的内边距
-    private int novelPageInternalPaddingLeftDp = 16;
-    private int novelPageInternalPaddingTopDp = 8;
-    private int novelPageInternalPaddingRightDp = 16;
-    private int novelPageInternalPaddingBottomDp = 8;
+    private ReadingSettingsManager readingSettings; // 新增
 
     private boolean isPaginationTriggered = false;
 
     // 关键改变：用于存储状态栏和导航栏的“物理”高度
     // 这些值一旦获取到就不会变，因为它们代表了屏幕区域
     private int fixedStatusBarHeight = 0;
-    private int fixedNavigationBarHeight = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setFullScreenMode();
+        // 在绑定布局之前初始化 SystemUiController
+        systemUiController = new SystemUiController(getWindow(), getWindow().getDecorView(), this);
+        systemUiController.enterFullScreenMode(); // 创建时应用全屏
+
         binding = ActivityReadingBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        // 初始化 ReadingSettingsManager
+        readingSettings = new ReadingSettingsManager(this);
 
         topBar = binding.topBar;
         bottomBar = binding.bottomBar;
@@ -112,9 +112,8 @@ public class ReadingActivity extends AppCompatActivity {
         View centerTapArea = binding.centerTapArea;
         View rightTapArea = binding.rightTapArea;
 
-        ivBack = binding.ivBack;
-        ivBack.setOnClickListener(v -> finish());
-
+        //基本控件操作
+        binding.ivBack.setOnClickListener(v -> finish());
         binding.ivMore.setOnClickListener(v -> Toast.makeText(this, "更多功能", Toast.LENGTH_SHORT).show());
         binding.ivSettings.setOnClickListener(v -> Toast.makeText(this, "设置", Toast.LENGTH_SHORT).show());
         binding.ivBookmark.setOnClickListener(v -> Toast.makeText(this, "书签", Toast.LENGTH_SHORT).show());
@@ -133,16 +132,13 @@ public class ReadingActivity extends AppCompatActivity {
             if (systemBarsInsets.top > 0) {
                 fixedStatusBarHeight = systemBarsInsets.top;
             }
-            if (systemBarsInsets.bottom > 0) {
-                fixedNavigationBarHeight = systemBarsInsets.bottom;
-            }
             // 1. 为 topBar 设置 padding：状态栏高度 + 刘海屏顶部高度
             topBar.setPadding(
                     topBar.getPaddingLeft(),
                     fixedStatusBarHeight ,
                     topBar.getPaddingRight(),
                     topBar.getPaddingBottom()
-            );
+                    );
             return insets;
         });
 
@@ -155,6 +151,9 @@ public class ReadingActivity extends AppCompatActivity {
         vp2NovelPages.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
+                // 确保在删除监听器之前获取尺寸
+                vp2NovelPages.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+
                 int vp2Width = vp2NovelPages.getWidth();
                 int vp2Height = vp2NovelPages.getHeight();
 
@@ -164,8 +163,6 @@ public class ReadingActivity extends AppCompatActivity {
                 if (vp2Width > 0 && vp2Height > 0 && !isPaginationTriggered) {
                     isPaginationTriggered = true; // 设置标志，防止重复触发
                     Log.d(TAG, "Valid ViewPager2 dimensions obtained. Triggering loadAndPaginateText.");
-
-                    vp2NovelPages.getViewTreeObserver().removeOnGlobalLayoutListener(this);
 
                     // 计算 NovelPageView 中文本可用的内容区域
                     // vp2NovelPages 的 paddingTop/Bottom 是用于整体布局的，
@@ -179,10 +176,10 @@ public class ReadingActivity extends AppCompatActivity {
                     int vp2VerticalPadding = vp2NovelPages.getPaddingTop() + vp2NovelPages.getPaddingBottom();
 
 
-                    // 将 NovelPageView 的内部 DP 内边距转换为 PX
-                    int novelPageInternalPaddingPxHorizontal = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingLeftDp + novelPageInternalPaddingRightDp, getResources().getDisplayMetrics());
-                    int novelPageInternalPaddingPxVertical = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingTopDp + novelPageInternalPaddingBottomDp, getResources().getDisplayMetrics());
-
+                    // 从 ReadingSettingsManager 获取 NovelPageView 的内部内边距
+                    int[] pagePaddingPx = readingSettings.getPagePaddingPx();
+                    int novelPageInternalPaddingPxHorizontal = pagePaddingPx[0] + pagePaddingPx[2];
+                    int novelPageInternalPaddingPxVertical = pagePaddingPx[1] + pagePaddingPx[3];
                     // 计算 TextPager 的最终可用内容区域
                     int actualContentWidthPx = vp2Width - vp2HorizontalPadding - novelPageInternalPaddingPxHorizontal;
                     int actualContentHeightPx = vp2Height - vp2VerticalPadding - novelPageInternalPaddingPxVertical;
@@ -267,25 +264,13 @@ public class ReadingActivity extends AppCompatActivity {
 
     }
 
-    private void setFullScreenMode() {
-        Window window = getWindow();
-        WindowCompat.setDecorFitsSystemWindows(window, false);
-
-        windowInsetsController = WindowCompat.getInsetsController(window, window.getDecorView());
-        if (windowInsetsController != null) {
-            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars());
-            windowInsetsController.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-
-            window.setStatusBarColor(Color.TRANSPARENT);
-            windowInsetsController.setAppearanceLightStatusBars(true);
-        }
-    }
-
     private void loadAndPaginateText(Uri uri, int contentWidthPx, int contentHeightPx) {
         executorService.execute(() -> {
             handler.post(this::showLoadingIndicator);
 
-            String fullText = readTextFromUri(this, uri);
+            // 使用 TextFileReader 读取内容
+            TextFileReader fileReader = new TextFileReader();
+            String fullText = fileReader.readTextFromUri(this, uri);
             if (fullText == null) {
                 handler.post(() -> {
                     Toast.makeText(ReadingActivity.this, "读取文件失败！", Toast.LENGTH_LONG).show();
@@ -296,8 +281,8 @@ public class ReadingActivity extends AppCompatActivity {
             }
 
             textPager = new TextPager(this, fullText);
-            textPager.setTextSize(defaultTextSizeSp);
-            textPager.setLineSpacingExtra(defaultLineSpacingExtraDp);
+            textPager.setTextSize(readingSettings.getTextSizeSp());
+            textPager.setLineSpacingExtra(readingSettings.getLineSpacingExtraDp());
             textPager.setVisibleArea(contentWidthPx, contentHeightPx);
             textPager.paginate();
 
@@ -317,51 +302,16 @@ public class ReadingActivity extends AppCompatActivity {
 
                 hideLoadingIndicator();
 
-                // 通过适配器或获取当前视图设置初始页面视图设置
-                // 这将把字体和内边距应用到 NovelPageView 实例
-                // 获取 ViewPager2 内部的 RecyclerView
+                // 如果可用，将设置应用于第一个可见的页面视图
                 RecyclerView recyclerView = (RecyclerView) vp2NovelPages.getChildAt(0);
-                NovelPageViewHolder firstHolder = (NovelPageViewHolder) recyclerView.findViewHolderForAdapterPosition(0);
-                if (firstHolder != null) {
-                    applyNovelPageViewSettings(firstHolder.novelPageView);
-                } else {
-                    // 如果第一个视图不立即可用（例如，由于缓存），
-                    // 设置将在绑定时应用。
-                    // 确保 NovelPageAdapter 的 onBindViewHolder 调用 setPageText
-                    // 这反过来会触发 NovelPageView 中的 recreateStaticLayout。
-                    // 或者，如果您需要将通用设置应用于所有视图，
-                    // 考虑在 NovelPageAdapter 的 onCreateViewHolder 中执行此操作
-                    // 或维护一个通用设置对象。
+                if (recyclerView != null) { // 检查 RecyclerView 是否已附加
+                    NovelPageViewHolder firstHolder = (NovelPageViewHolder) recyclerView.findViewHolderForAdapterPosition(0);
+                    if (firstHolder != null) {
+                        applyNovelPageViewSettings(firstHolder.novelPageView);
+                    }
                 }
             });
         });
-    }
-
-    private String readTextFromUri(Context context, Uri uri) {
-        StringBuilder stringBuilder = new StringBuilder();
-        try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                stringBuilder.append(line).append("\n");
-            }
-        } catch (IOException e) {
-            Log.e(TAG, "读取文件失败 (UTF-8): " + e.getMessage());
-            try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
-                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "GBK"))) {
-                stringBuilder.setLength(0);
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    stringBuilder.append(line).append("\n");
-                }
-                Log.d(TAG, "尝试GBK编码读取成功。");
-                return stringBuilder.toString();
-            } catch (IOException e2) {
-                Log.e(TAG, "尝试GBK编码失败: " + e2.getMessage());
-                return null;
-            }
-        }
-        return stringBuilder.toString();
     }
 
     private void toggleBarsVisibility() {
@@ -375,11 +325,7 @@ public class ReadingActivity extends AppCompatActivity {
     private void showBars() {
         isBarsVisible = true;
 
-        if (windowInsetsController != null) {
-            windowInsetsController.show(WindowInsetsCompat.Type.systemBars());
-            getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.bar_color));
-            windowInsetsController.setAppearanceLightStatusBars(false);
-        }
+        systemUiController.exitFullScreenMode(R.color.bar_color); // 使用 SystemUiController
 
         topBar.setVisibility(View.VISIBLE);
         topBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -400,7 +346,7 @@ public class ReadingActivity extends AppCompatActivity {
 
     private void hideBars() {
         isBarsVisible = false;
-        handler.removeCallbacks(hideBarsRunnable);
+
 
         topBar.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         ObjectAnimator topAnimator = ObjectAnimator.ofFloat(topBar, "translationY", 0f, -topBar.getMeasuredHeight());
@@ -409,11 +355,7 @@ public class ReadingActivity extends AppCompatActivity {
             @Override
             public void onAnimationEnd(Animator animation) {
                 topBar.setVisibility(View.GONE);
-                if (windowInsetsController != null) {
-                    windowInsetsController.hide(WindowInsetsCompat.Type.systemBars());
-                    getWindow().setStatusBarColor(Color.TRANSPARENT);
-                    windowInsetsController.setAppearanceLightStatusBars(true);
-                }
+                systemUiController.enterFullScreenMode(); // 使用 SystemUiController
             }
         });
         topAnimator.start();
@@ -432,15 +374,10 @@ public class ReadingActivity extends AppCompatActivity {
 
 
     private void hideBarsImmediately() {
-        handler.removeCallbacks(hideBarsRunnable);
         if (topBar != null) topBar.setVisibility(View.GONE);
         if (bottomBar != null) bottomBar.setVisibility(View.GONE);
         isBarsVisible = false;
-        if (windowInsetsController != null) {
-            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars());
-            getWindow().setStatusBarColor(Color.TRANSPARENT);
-            windowInsetsController.setAppearanceLightStatusBars(true);
-        }
+        systemUiController.enterFullScreenMode();
     }
 
     private void updateProgressUI(int currentPage) {
@@ -477,26 +414,12 @@ public class ReadingActivity extends AppCompatActivity {
     // 新的辅助方法，用于将设置应用于 NovelPageView
     private void applyNovelPageViewSettings(NovelPageView pageView) {
         if (pageView != null) {
-            // 如果您有字体，请应用它
-            // 确保 R.font.your_font_name 存在，否则使用系统默认字体
-            try {
-                pageView.setTypeface(ResourcesCompat.getFont(this, R.font.serif));
-            } catch (Exception e) {
-                Log.e(TAG, "字体未找到或加载字体错误: " + e.getMessage());
-                pageView.setTypeface(null); // 使用默认系统字体
-            }
-
-            pageView.setTextSize(defaultTextSizeSp);
-            pageView.setLineSpacingExtra(defaultLineSpacingExtraDp);
-            // 将 DP 转换为 PX 以进行内部内边距设置
-            pageView.setPagePadding(
-                    (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingLeftDp, getResources().getDisplayMetrics()),
-                    (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingTopDp, getResources().getDisplayMetrics()),
-                    (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingRightDp, getResources().getDisplayMetrics()),
-                    (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, novelPageInternalPaddingBottomDp, getResources().getDisplayMetrics())
-            );
-            // 您也可以在这里设置文本颜色或使其可配置
-            pageView.setTextColor(ContextCompat.getColor(this, android.R.color.black)); // 示例：黑色文本
+            pageView.setTypeface(readingSettings.getTypeface());
+            pageView.setTextSize(readingSettings.getTextSizeSp());
+            pageView.setLineSpacingExtra(readingSettings.getLineSpacingExtraDp());
+            int[] padding = readingSettings.getPagePaddingPx();
+            pageView.setPagePadding(padding[0], padding[1], padding[2], padding[3]);
+            pageView.setTextColor(readingSettings.getTextColor());
         }
     }
 
@@ -504,14 +427,14 @@ public class ReadingActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        setFullScreenMode();
+        systemUiController.enterFullScreenMode(); // 确保在 resume 时全屏
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
-            setFullScreenMode();
+            systemUiController.enterFullScreenMode();
         }
     }
 
@@ -523,10 +446,6 @@ public class ReadingActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // 即使不再直接调用 `hideBarsWithDelay`，最好还是移除回调
-        if (handler != null && hideBarsRunnable != null) {
-            handler.removeCallbacks(hideBarsRunnable);
-        }
         executorService.shutdownNow();
     }
 }

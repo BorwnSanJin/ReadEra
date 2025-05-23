@@ -2,7 +2,6 @@ package com.example.readera.utiles;
 
 import android.content.Context;
 import android.graphics.Paint;
-import android.graphics.Rect;
 import android.text.Layout;
 import android.text.StaticLayout;
 import android.text.TextPaint;
@@ -15,37 +14,37 @@ public class TextPager {
     private static final String TAG = "TextPager";
 
     private Context context;
-    private String fullText;
-    private List<String> pages;
+    private String fullText; // 完整文本内容
+    private List<String> pages; // 存储分页后的每一页内容
 
-    private TextPaint textPaint; // 现在我们从 NovelPageView 获取此对象
-    private int visibleWidth; // 文本可用宽度，不包括 NovelPageView 的内部内边距
-    private int visibleHeight; // 文本可用高度，不包括 NovelPageView 的内部内边距
-    private int textSizeSp;
-    private int lineSpacingExtraDp;
+    private TextPaint textPaint; // 用于文本测量的画笔
+    private int visibleWidth; // 文本可用的宽度（像素），不包括 NovelPageView 的内部内边距
+    private int visibleHeight; // 文本可用的高度（像素），不包括 NovelPageView 的内部内边距
+    private int textSizeSp; // 字体大小（sp单位），用于设置 textPaint
+    private int lineSpacingExtraDp; // 额外行间距（dp单位）
 
-    // 我们将传递 NovelPageView 的 TextPaint 实例和内容尺寸
-    // 或者让 TextPager 根据设置计算它们。
-    // 为简单起见，让 TextPager 管理 TextPaint 属性。
-    // 但它需要从视图获取实际的可见区域。
+    // 用于整个文本或大块文本的 StaticLayout 实例
+    private StaticLayout fullLayout;
+    private float lineSpacingExtraPx; // 预先计算的行间距像素值
 
     public TextPager(Context context, String fullText) {
         this.context = context;
         this.fullText = fullText;
         this.pages = new ArrayList<>();
-        this.textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-        textPaint.setColor(android.graphics.Color.BLACK); // 默认颜色，可以覆盖
+        this.textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG); // 启用抗锯齿
+        textPaint.setColor(android.graphics.Color.BLACK); // 默认颜色，可覆盖
     }
 
     public void setTextSize(int sp) {
         this.textSizeSp = sp;
+        // 将 sp 单位转换为像素，并设置给 textPaint
         textPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, context.getResources().getDisplayMetrics()));
     }
 
     public void setLineSpacingExtra(int dp) {
         this.lineSpacingExtraDp = dp;
-        // 行间距将由 StaticLayout 处理，但 TextPager 需要该值
-        // 以正确预测能容纳多少文本。
+        // 将 dp 单位转换为像素，用于 StaticLayout
+        this.lineSpacingExtraPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, context.getResources().getDisplayMetrics());
     }
 
     /**
@@ -63,6 +62,10 @@ public class TextPager {
         return pages;
     }
 
+    /**
+     * 对完整文本进行分页，生成每一页的内容。
+     * 优化点：通过一次性创建 StaticLayout 并利用其行信息来提高效率。
+     */
     public void paginate() {
         pages.clear();
         if (fullText == null || fullText.isEmpty() || visibleWidth <= 0 || visibleHeight <= 0) {
@@ -70,87 +73,101 @@ public class TextPager {
             return;
         }
 
-        int start = 0;
-        while (start < fullText.length()) {
-            // 使用 StaticLayout 测量能容纳多少字符
-            StaticLayout staticLayout;
-            int end = fullText.length();
-            int measuredLines = 0;
+        // --- 步骤 1: 为整个文本创建单个 StaticLayout ---
+        // 这是最重要的性能优化。 StaticLayout 会处理文本换行和测量所有行。
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            fullLayout = StaticLayout.Builder.obtain(fullText, 0, fullText.length(), textPaint, visibleWidth)
+                    .setAlignment(Layout.Alignment.ALIGN_NORMAL) // 文本对齐方式
+                    .setLineSpacing(lineSpacingExtraPx, 1.0f) // 设置行间距（额外像素，乘数）
+                    .setIncludePad(false) // 与 NovelPageView 渲染保持一致，不包含 StaticLayout 默认的额外填充
+                    .build();
+        } else {
+            // 对于旧版 API (API < 23)
+            fullLayout = new StaticLayout(fullText, textPaint, visibleWidth,
+                    Layout.Alignment.ALIGN_NORMAL, 1.0f, lineSpacingExtraPx, false); // 与 NovelPageView 渲染保持一致
+        }
 
-            // 迭代以找到适合的最大子字符串
-            // 这个循环是为了找到完美的“end”索引
-            // 更优化的方法是二分查找
-            // 为简单起见，我们将逐字符或逐行增加
-            int currentEnd = start;
-            int lastGoodEnd = start;
+        int startLine = 0; // 当前页面在 fullLayout 中的起始行索引
+        int currentTextOffset = 0; // 当前页面在 fullText 中的起始字符偏移量（用于日志和最终截取）
 
-            while (currentEnd <= fullText.length()) {
-                String subText = fullText.substring(start, currentEnd);
+        // 循环直到所有行都被分页
+        while (startLine < fullLayout.getLineCount()) {
+            int currentPageHeight = 0; // 当前页已累积的高度
+            int endLine = startLine; // 当前页面在 fullLayout 中的结束行索引（不包含）
 
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                    staticLayout = StaticLayout.Builder.obtain(subText, 0, subText.length(), textPaint, visibleWidth)
-                            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                            .setLineSpacing(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, lineSpacingExtraDp, context.getResources().getDisplayMetrics()), 1.0f)
-                            .setIncludePad(false)
-                            .build();
-                } else {
-                    staticLayout = new StaticLayout(subText, textPaint, visibleWidth,
-                            Layout.Alignment.ALIGN_NORMAL, 1.0f, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, lineSpacingExtraDp, context.getResources().getDisplayMetrics()), false);
-                }
+            // --- 步骤 2: 遍历 fullLayout 中的行，以找到页面边界 ---
+            while (endLine < fullLayout.getLineCount()) {
+                // 获取当前行的高度
+                int lineHeight = fullLayout.getLineBottom(endLine) - fullLayout.getLineTop(endLine);
 
-                if (staticLayout.getHeight() <= visibleHeight) {
-                    lastGoodEnd = currentEnd;
-                    if (currentEnd == fullText.length()) {
-                        // 所有剩余文本都适合
-                        break;
+                if (currentPageHeight + lineHeight > visibleHeight) {
+                    // 如果加上当前行会超出页面高度，则当前行是下一页的第一行。
+                    // 特殊情况：如果这是当前页的第一行（即 endLine == startLine），并且它本身就超出了可见高度，
+                    // 我们仍然必须包含它，否则会陷入无限循环且无法前进。
+                    if (endLine == startLine) {
+                        endLine++; // 强制包含这一行，即使它超出高度
                     }
-                    // 尝试容纳更多文本，为了性能逐词或逐大块增加
-                    currentEnd = findNextWordEnd(fullText, currentEnd);
-                    if (currentEnd == lastGoodEnd) { // 防止在找不到更多单词时无限循环
-                        currentEnd++; // 回退到逐字符
-                    }
-                } else {
-                    // 这块太大，lastGoodEnd 是能容纳的最大块
-                    break;
+                    break; // 找到当前页的结束位置
                 }
+                currentPageHeight += lineHeight; // 累加行高
+                endLine++; // 移动到下一行
             }
 
-            // 如果没有文本能容纳，这意味着 visibleHeight 或 Width 对于即使一个字符也太小了
-            if (lastGoodEnd == start) {
-                // 处理边缘情况，即使一个字符也不适合或循环卡住
-                // 至少添加一个字符以避免在可见区域非常小的情况下无限循环
-                if (start < fullText.length()) {
-                    lastGoodEnd = Math.min(start + 1, fullText.length()); // 至少添加 1 个字符
-                    // 即使此部分页面超出高度，也强制添加以防止无限循环
-                    Log.w(TAG, "单个字符超出页面高度。强制对一个字符进行分页。");
-                } else {
-                    break; // 没有更多文本了
+            // --- 步骤 3: 计算当前页的文本范围 ---
+            // 获取当前页在 fullText 中的起始字符偏移量
+            int pageStartOffset = fullLayout.getLineStart(startLine);
+            int pageEndOffset; // 当前页在 fullText 中的结束字符偏移量
+
+            // 根据循环结束时的 endLine 值确定结束偏移量
+            if (endLine > fullLayout.getLineCount()) {
+                // 如果 endLine 超出了总行数，说明所有剩余文本都适合当前页，取最后一行的结束偏移量
+                pageEndOffset = fullLayout.getLineEnd(fullLayout.getLineCount() - 1);
+            } else if (endLine == startLine) {
+                // 如果只添加了一行（例如，因为第一行就溢出了），或者根本没添加行
+                // 此时 endLine 仍等于 startLine，但我们必须保证至少前进一个字符，防止死循环。
+                // 默认取当前行的结束偏移量
+                pageEndOffset = fullLayout.getLineEnd(startLine);
+                // 额外的安全检查：如果计算出的 pageEndOffset 没有前进，则至少推进一个字符
+                if (pageEndOffset <= pageStartOffset && pageStartOffset < fullText.length()) {
+                    pageEndOffset = Math.min(pageStartOffset + 1, fullText.length());
+                    Log.w(TAG, "由于内容不适合，强制分页前进一个字符。");
                 }
+            } else {
+                // 正常情况：当前页的结束是前一行的结束（endLine - 1）
+                pageEndOffset = fullLayout.getLineEnd(endLine - 1);
+            }
+
+            // 安全检查：确保结束偏移量不会超出 fullText 的实际长度
+            if (pageEndOffset > fullText.length()) {
+                pageEndOffset = fullText.length();
+            }
+
+            // 安全检查：确保起始偏移量有效且不大于结束偏移量
+            if (pageStartOffset < 0) pageStartOffset = 0;
+            if (pageStartOffset >= fullText.length() && fullText.length() > 0) {
+                pageStartOffset = fullText.length() -1;
+            }
+            if (pageEndOffset < pageStartOffset) {
+                pageEndOffset = pageStartOffset; // 确保结束不小于开始
             }
 
 
-            String page = fullText.substring(start, lastGoodEnd);
-            pages.add(page);
-            start = lastGoodEnd;
-            Log.d(TAG, "分页页面 " + pages.size() + ", 长度: " + page.length());
+            // 截取当前页的文本内容并添加到 pages 列表中
+            String pageContent = fullText.substring(pageStartOffset, pageEndOffset);
+            pages.add(pageContent);
+            Log.d(TAG, "分页页面 " + pages.size() + ", 长度: " + pageContent.length() + ", 测量高度: " + currentPageHeight + "px");
+
+            // 移动到下一页的起始行和字符偏移量
+            startLine = endLine; // 下一页从 fullLayout 中本页结束的行开始
+            currentTextOffset = pageEndOffset; // 更新字符偏移量，用于日志和下一次循环
+
+            // 跳过下一页开头可能存在的空白字符，确保页面内容从非空白字符开始
+            while (currentTextOffset < fullText.length() && Character.isWhitespace(fullText.charAt(currentTextOffset))) {
+                currentTextOffset++;
+                // 这里的跳过逻辑会影响 currentTextOffset，但不会直接影响 startLine。
+                // startLine 会在下一次循环开始时通过 endLine 正确地指向下一页的文本起始行。
+            }
         }
         Log.d(TAG, "分页完成。总页数: " + pages.size());
-    }
-
-    // 辅助方法，用于查找下一个单词的结尾，如果没有找到空格则只增加
-    private int findNextWordEnd(String text, int startIndex) {
-        int nextSpace = text.indexOf(' ', startIndex + 1);
-        int nextNewline = text.indexOf('\n', startIndex + 1);
-
-        if (nextSpace == -1 && nextNewline == -1) {
-            return text.length(); // 没有更多空格或换行符，取所有剩余文本
-        }
-        if (nextSpace == -1) {
-            return nextNewline + 1; // 如果没有空格，优先换行符
-        }
-        if (nextNewline == -1) {
-            return nextSpace + 1; // 如果没有换行符，优先空格
-        }
-        return Math.min(nextSpace, nextNewline) + 1; // 取空格或换行符中较早的一个
     }
 }
