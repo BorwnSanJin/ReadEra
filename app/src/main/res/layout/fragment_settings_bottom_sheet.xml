@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/bottom_sheet_background"> <TextView
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="阅读设置"
+    android:textSize="22sp"
+    android:textColor="@android:color/black"
+    android:textStyle="bold"
+    android:gravity="center"
+    android:layout_marginBottom="24dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="字体大小"
+            android:textSize="16sp"
+            android:textColor="@android:color/black"/>
+
+        <SeekBar
+            android:id="@+id/seek_bar_font_size"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:min="12"
+            android:max="24"
+            android:progress="16"
+            android:layout_marginStart="16dp"/>
+
+        <TextView
+            android:id="@+id/tv_current_font_size"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textColor="@android:color/black"
+            android:text="16sp"/>
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="阅读背景"
+        android:textSize="16sp"
+        android:textColor="@android:color/black"
+        android:layout_marginBottom="8dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="16dp">
+
+        <View
+            android:id="@+id/bg_white"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="#FFFFFF"
+            android:layout_marginEnd="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:tag="#FFFFFF"/>
+
+        <View
+            android:id="@+id/bg_green"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="#E8F5E9"
+            android:layout_marginEnd="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:tag="#E8F5E9"/>
+
+        <View
+            android:id="@+id/bg_dark"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="#333333"
+            android:clickable="true"
+            android:focusable="true"
+            android:tag="#333333"/>
+    </LinearLayout>
+
+</LinearLayout>

@@ -37,6 +37,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.readera.Adapter.NovelPageAdapter;
 import com.example.readera.databinding.ActivityReadingBinding;
+import com.example.readera.fragments.SettingsBottomSheetFragment;
 import com.example.readera.utiles.ReadingSettingsManager;
 import com.example.readera.utiles.SystemUiController;
 import com.example.readera.utiles.TextFileReader;
@@ -114,7 +115,11 @@ public class ReadingActivity extends AppCompatActivity {
             Intent intent = new Intent(ReadingActivity.this, MoreOptionsActivity.class);
             startActivity(intent);
         });
-        binding.ivSettings.setOnClickListener(v -> Toast.makeText(this, "设置", Toast.LENGTH_SHORT).show());
+        binding.ivSettings.setOnClickListener(v -> {
+            // 创建并显示 BottomSheetDialogFragment
+            SettingsBottomSheetFragment settingsBottomSheet = SettingsBottomSheetFragment.newInstance();
+            settingsBottomSheet.show(getSupportFragmentManager(), settingsBottomSheet.getTag());
+        });
 
         // --- 为书签按钮添加点击监听器 ---
         binding.ivBookmark.setOnClickListener(v -> addBookmark());

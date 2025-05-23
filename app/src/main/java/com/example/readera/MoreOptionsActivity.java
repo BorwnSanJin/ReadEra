@@ -32,13 +32,12 @@ public class MoreOptionsActivity extends AppCompatActivity {
         LinearLayout moreOptionsTopBar = findViewById(R.id.more_options_top_bar);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.more_options_top_main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            // 调整顶部栏的顶部填充，以适应状态栏的高度
-            // 这正是“背景色覆盖状态栏，内容在状态栏下方”的关键
+
             moreOptionsTopBar.setPadding(
-                    moreOptionsTopBar.getPaddingLeft(),   // 保持现有的左内边距
-                    systemBars.top,                       // 将状态栏高度设为顶部内边距
-                    moreOptionsTopBar.getPaddingRight(),  // 保持现有的右内边距
-                    moreOptionsTopBar.getPaddingBottom()  // 保持现有的底内边距
+                    moreOptionsTopBar.getPaddingLeft(),
+                    systemBars.top,
+                    moreOptionsTopBar.getPaddingRight(),
+                    moreOptionsTopBar.getPaddingBottom()
             );
 
             return insets;
