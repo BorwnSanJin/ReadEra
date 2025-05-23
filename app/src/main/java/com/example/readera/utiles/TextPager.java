@@ -20,8 +20,8 @@ public class TextPager {
     private TextPaint textPaint; // 用于文本测量的画笔
     private int visibleWidth; // 文本可用的宽度（像素），不包括 NovelPageView 的内部内边距
     private int visibleHeight; // 文本可用的高度（像素），不包括 NovelPageView 的内部内边距
-    private int textSizeSp; // 字体大小（sp单位），用于设置 textPaint
-    private int lineSpacingExtraDp; // 额外行间距（dp单位）
+    private float textSizeSp; // 字体大小（sp单位），用于设置 textPaint
+    private float lineSpacingExtraDp; // 额外行间距（dp单位）
 
     // 用于整个文本或大块文本的 StaticLayout 实例
     private StaticLayout fullLayout;
