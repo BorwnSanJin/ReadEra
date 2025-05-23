@@ -13,7 +13,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:paddingTop="?attr/actionBarSize"
-        android:paddingBottom="?attr/actionBarSize"
         android:clipToPadding="false" />
 
     <LinearLayout
@@ -177,7 +176,5 @@
         android:layout_gravity="center"
         android:visibility="gone"
         tools:visibility="visible" />
-
-
 
 </FrameLayout>
