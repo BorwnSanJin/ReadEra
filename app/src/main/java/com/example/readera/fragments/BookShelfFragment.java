@@ -1,5 +1,6 @@
 package com.example.readera.fragments;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -55,6 +56,7 @@ public class BookShelfFragment  extends Fragment {
         void onBookStatusChanged();
     }
 
+    @SuppressLint("WrongConstant")
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -88,7 +90,17 @@ public class BookShelfFragment  extends Fragment {
                         Intent data = result.getData();
                         if (data != null && data.getData() != null) {
                             Uri uri = data.getData();
-                            processImportedTextFile(uri);// 处理导入的文本文件
+                            // **重要：对单个文件 URI 进行持久化权限操作**
+                            // **重要：对单个文件 URI 进行持久化权限操作**
+                            final int takeFlags = data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
+                            try {
+                                requireContext().getContentResolver().takePersistableUriPermission(uri, takeFlags);
+                                Log.d(TAG, "Successfully took persistable URI permission for single file: " + uri.toString());
+                                processImportedTextFile(uri); // 处理导入的文本文件
+                            } catch (SecurityException e) {
+                                Log.e(TAG, "Failed to take persistable URI permission for single file: " + uri.toString(), e);
+                                Toast.makeText(requireContext(), R.string.permission_denied_file_picker, Toast.LENGTH_LONG).show();
+                            }
                         }
                     }
                 });
@@ -100,7 +112,17 @@ public class BookShelfFragment  extends Fragment {
                         if (data != null && data.getData() != null) {
                             Uri directoryUri = data.getData();
                             if (directoryUri != null) {
-                                importTextFilesFromDirectory(directoryUri);// 从导入的目录中导入文本文件
+                                // 目录权限持久化在 listTextFilesInDirectory 中执行
+                                // 但这里可以再次确认一下，确保在传递给 importTextFilesFromDirectory 之前目录本身被持久化
+                                final int takeFlags = data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
+                                try {
+                                    requireContext().getContentResolver().takePersistableUriPermission(directoryUri, takeFlags);
+                                    Log.d(TAG, "Successfully took persistable URI permission for directory: " + directoryUri.toString());
+                                    importTextFilesFromDirectory(directoryUri); // 从导入的目录中导入文本文件
+                                } catch (SecurityException e) {
+                                    Log.e(TAG, "Failed to take persistable URI permission for directory: " + directoryUri.toString(), e);
+                                    Toast.makeText(requireContext(), R.string.permission_denied_directory_picker, Toast.LENGTH_LONG).show();
+                                }
                             }
                         }
                     }
@@ -332,7 +354,7 @@ public class BookShelfFragment  extends Fragment {
         super.onCreateContextMenu(menu, v, menuInfo);
         if (v.getId() == R.id.bookListView) {
             MenuInflater inflater = requireActivity().getMenuInflater();
-            inflater.inflate(R.menu.book_context_menu, menu); // 你的上下文菜单 XML 文件
+            inflater.inflate(R.menu.delete_context_menu, menu); // 你的上下文菜单 XML 文件
         }
     }
 
@@ -344,7 +366,7 @@ public class BookShelfFragment  extends Fragment {
         int position = info.position;
         BookInfo bookToDelete = bookList.get(position);
 
-        if (item.getItemId() == R.id.action_delete_book) {
+        if (item.getItemId() == R.id.action_delete) {
             new AlertDialog.Builder(requireContext())
                     .setTitle(R.string.confirm_delete)
                     .setMessage(getString(R.string.confirm_delete_book, bookToDelete.getTitle()))

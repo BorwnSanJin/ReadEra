@@ -5,7 +5,7 @@
     android:background="@android:color/white">
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_table_of_contents"
+        android:id="@+id/rv_contents"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:padding="16dp" />

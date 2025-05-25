@@ -39,8 +39,9 @@ dependencies {
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.11.0' // 可能需要更新到最新版本
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.viewpager2:viewpager2:1.0.0' // ViewPager2 依赖
+    implementation libs.appcompat
+    implementation libs.material.v1110
+    implementation libs.constraintlayout
+    implementation libs.viewpager2 // ViewPager2 依赖
+    implementation 'com.google.code.gson:gson:2.13.1'
 }

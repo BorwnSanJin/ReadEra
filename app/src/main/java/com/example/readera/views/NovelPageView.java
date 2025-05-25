@@ -14,6 +14,7 @@ import android.view.View;
 import androidx.annotation.Nullable;
 import androidx.core.content.res.ResourcesCompat;
 
+//自定义view
 public class NovelPageView extends View {
 
     private TextPaint textPaint;

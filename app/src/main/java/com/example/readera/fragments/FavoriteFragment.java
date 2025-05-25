@@ -1,7 +1,5 @@
 package com.example.readera.fragments;
 
-import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -16,7 +14,6 @@ import androidx.fragment.app.Fragment;
 import com.example.readera.Adapter.BookAdapter;
 import com.example.readera.Dao.BookDao;
 import com.example.readera.R;
-import com.example.readera.ReadingActivity;
 import com.example.readera.model.BookInfo;
 import com.example.readera.utiles.ReadingUtils;
 

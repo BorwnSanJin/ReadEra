@@ -38,6 +38,10 @@ public class NovelPageAdapter extends RecyclerView.Adapter<NovelPageAdapter.Nove
         return pages.size();
     }
 
+    public List<String > getPages() {
+        return this.pages;
+    }
+
     public static class NovelPageViewHolder extends RecyclerView.ViewHolder {
         public NovelPageView novelPageView; // 对您的自定义视图的引用
 

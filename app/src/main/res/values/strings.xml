@@ -41,4 +41,6 @@
     <string name="file_end_toast">文件已读完</string>
     <string name="unknown_error_toast">发生未知错误</string>
     <string name="long_reader_content">这里是您的阅读内容，可以是很长的一段文本，用来模拟书籍内容。...</string>
+    <string name="permission_denied_file_picker">无法获取文件权限，请重试</string>
+    <string name="permission_denied_directory_picker">无法获取目录权限，请重试。</string>
 </resources>

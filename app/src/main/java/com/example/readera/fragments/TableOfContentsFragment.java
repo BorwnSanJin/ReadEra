@@ -18,9 +18,9 @@ public class TableOfContentsFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_table_of_contents, container, false);
+        View view = inflater.inflate(R.layout.fragment_contents, container, false);
 
-        recyclerView = view.findViewById(R.id.rv_table_of_contents);
+        recyclerView = view.findViewById(R.id.rv_contents);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         // TODO: 在这里初始化你的 ChapterAdapter 并设置给 RecyclerView
         // 例如：

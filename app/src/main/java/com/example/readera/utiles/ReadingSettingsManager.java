@@ -5,9 +5,20 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
+import android.util.Log;
+
 import androidx.core.content.res.ResourcesCompat; // 用于字体
 
 import com.example.readera.R; // 确保导入您的 R 文件
+import com.example.readera.model.Bookmark;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 public class ReadingSettingsManager {
 
@@ -21,11 +32,15 @@ public class ReadingSettingsManager {
     private static final String KEY_TEXT_COLOR = "text_color";
     private static final String KEY_FONT_PATH = "font_path"; // 用于存储字体文件路径或资源ID
 
-    // --- 新增：书签相关键 ---
-    private static final String KEY_BOOKMARK_PREFIX = "bookmark_"; // 用于存储特定文件的书签
+    // --- 修改：书签相关键 ---
+    // KEY_LAST_READ_PAGE_PREFIX 用于存储每个文件的最后阅读页码（自动保存的进度）
+    private static final String KEY_LAST_READ_PAGE_PREFIX = "last_read_page_";
+    // KEY_ALL_BOOKMARKS 用于存储用户手动添加的书签列表
+    private static final String KEY_ALL_BOOKMARKS = "all_user_bookmarks";
 
     private SharedPreferences prefs;
     private Context context;
+    private Gson gson;
 
     // 默认值
     private static final int DEFAULT_TEXT_SIZE_SP = 18;
@@ -37,6 +52,10 @@ public class ReadingSettingsManager {
     public ReadingSettingsManager(Context context) {
         this.context = context;
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        // --- 关键修改：使用 GsonBuilder 注册 UriTypeAdapter ---
+        gson = new GsonBuilder()
+                .registerTypeAdapter(Uri.class, new UriTypeAdapter())
+                .create();
     }
 
     public int getTextSizeSp() {
@@ -119,49 +138,98 @@ public class ReadingSettingsManager {
     // --- 新增书签方法 ---
 
     /**
-     * 生成一个唯一的书签键，基于文件URI。
-     * 可以使用 URI 的字符串表示或其哈希值。
+     * 获取用于存储特定文件最后阅读页码的键。
+     * 使用 URI 的字符串表示作为键，因为它是唯一的。
      * @param fileUri 文件的 URI
-     * @return 对应文件书签的 SharedPreferences 键
+     * @return 对应文件最后阅读页码的 SharedPreferences 键
      */
-    private String getBookmarkKey(Uri fileUri) {
-        // 使用 URI 的哈希值作为键的一部分，避免URI过长
-        // 注意：URI的String形式可以很长，直接用作键可能不佳。
-        // 一个更健壮的方法是使用文件路径的哈希值或更短的唯一标识符。
-        // 这里为了简化，我们直接使用 URI 的 toString() 作为键的一部分。
-        return KEY_BOOKMARK_PREFIX + fileUri.toString().hashCode();
+    private String getLastReadPageKey(Uri fileUri) {
+        if (fileUri == null){
+            return "";
+        }
+        return KEY_LAST_READ_PAGE_PREFIX  + fileUri.toString();
     }
 
     /**
-     * 保存指定文件的书签（当前页码）。
+     * 保存指定文件的**最后阅读页码**（自动保存的进度）。
      * @param fileUri 文件的 URI
      * @param pageIndex 当前阅读的页码（从0开始）
      */
-    public void saveBookmark(Uri fileUri, int pageIndex) {
+    public void saveLastReadPage(Uri fileUri, int pageIndex) {
         if (fileUri != null) {
-            prefs.edit().putInt(getBookmarkKey(fileUri), pageIndex).apply();
+            prefs.edit().putInt(getLastReadPageKey(fileUri), pageIndex).apply();
+            Log.d("ReadingSettingsManager", "保存最后阅读页码: " + pageIndex + " for " + fileUri.toString());
         }
     }
 
     /**
-     * 获取指定文件的书签（保存的页码）。
+     * 获取指定文件的**最后阅读页码**。
      * @param fileUri 文件的 URI
-     * @return 保存的页码（从0开始），如果没有书签则返回0
+     * @return 保存的页码（从0开始），如果没有保存则返回0
      */
-    public int getBookmark(Uri fileUri) {
+    public int getLastReadPage(Uri fileUri) {
         if (fileUri != null) {
-            return prefs.getInt(getBookmarkKey(fileUri), 0); // 默认返回第一页 (0)
+            return prefs.getInt(getLastReadPageKey(fileUri), 0); // 默认返回第一页 (0)
         }
         return 0;
     }
-
-    /**
-     * 移除指定文件的书签。
-     * @param fileUri 文件的 URI
-     */
-    public void removeBookmark(Uri fileUri) {
-        if (fileUri != null) {
-            prefs.edit().remove(getBookmarkKey(fileUri)).apply();
+    // --- 新增：管理用户手动添加的书签列表的方法 ---
+    public void addBookmark (Bookmark bookmark){
+        List<Bookmark> bookmarks = getAllBookmarks();
+        // 检查是否已存在完全相同的书签，避免重复添加
+        if (!bookmarks.contains(bookmark)) {
+            bookmarks.add(0, bookmark); // 新书签添加到列表顶部，最新添加的显示在前面
+            saveAllBookmarks(bookmarks);
+            Log.d("ReadingSettingsManager", "书签已添加: " + bookmark.getDisplayTitle() + ", 页码: " + bookmark.getPageNumber());
+        } else {
+            Log.d("ReadingSettingsManager", "书签已存在，未重复添加: " + bookmark.getDisplayTitle() + ", 页码: " + bookmark.getPageNumber());
         }
     }
+
+    /**
+            * 移除一个书签。
+            * @param bookmark 要移除的 Bookmark 对象
+     */
+    public void removeBookmark(Bookmark bookmark) {
+        List<Bookmark> bookmarks = getAllBookmarks();
+        // 使用 Iterator 安全地移除元素，避免ConcurrentModificationException
+        Iterator<Bookmark> iterator = bookmarks.iterator();
+        boolean removed = false;
+        while (iterator.hasNext()) {
+            Bookmark b = iterator.next();
+            if (b.equals(bookmark)) { // 使用 Bookmark 类的 equals 方法进行比较
+                iterator.remove();
+                removed = true;
+                break; // 假设书签是唯一的，找到并移除后即可退出
+            }
+        }
+
+        if (removed) {
+            saveAllBookmarks(bookmarks);
+            Log.d("ReadingSettingsManager", "书签已移除: " + bookmark.getDisplayTitle() + ", 页码: " + bookmark.getPageNumber());
+        } else {
+            Log.d("ReadingSettingsManager", "书签未找到，无法移除: " + bookmark.getDisplayTitle() + ", 页码: " + bookmark.getPageNumber());
+        }
+    }
+    /**
+     * 获取所有用户手动添加的书签列表。
+     * @return 书签列表，如果没有则返回空列表
+     */
+    public List<Bookmark> getAllBookmarks() {
+        String json = prefs.getString(KEY_ALL_BOOKMARKS, "[]");
+        Type type = new TypeToken<ArrayList<Bookmark>>() {}.getType();
+        List<Bookmark> bookmarks = gson.fromJson(json, type);
+        return bookmarks != null ? bookmarks : new ArrayList<>();
+    }
+
+    /**
+     * 保存整个用户书签列表。
+     * 这是一个私有方法，供 addBookmark 和 removeBookmark 内部调用。
+     * @param bookmarks 要保存的书签列表
+     */
+    private void saveAllBookmarks(List<Bookmark> bookmarks) {
+        String json = gson.toJson(bookmarks);
+        prefs.edit().putString(KEY_ALL_BOOKMARKS, json).apply();
+    }
+
 }
