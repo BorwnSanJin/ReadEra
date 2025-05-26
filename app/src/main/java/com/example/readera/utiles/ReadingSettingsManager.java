@@ -51,7 +51,8 @@ public class ReadingSettingsManager {
     private static final int DEFAULT_BACKGROUND_COLOR_RES = R.color.reading_bg_white; // 默认白色
     private static final int DEFAULT_TEXT_COLOR = R.color.reading_text_dark;// 默认深色文本
     private static final String DEFAULT_FONT_NAME  = "system_default"; // 默认无特定字体
-
+    // --- 单例模式相关修改 ---
+    private static ReadingSettingsManager instance;
     public ReadingSettingsManager(Context context) {
         this.context = context;
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -59,6 +60,13 @@ public class ReadingSettingsManager {
         gson = new GsonBuilder()
                 .registerTypeAdapter(Uri.class, new UriTypeAdapter())
                 .create();
+    }
+    // 提供一个公共的静态方法来获取实例
+    public static synchronized ReadingSettingsManager getInstance(Context context) {
+        if (instance == null) {
+            instance = new ReadingSettingsManager(context);
+        }
+        return instance;
     }
 
     public float getTextSizeSp() {

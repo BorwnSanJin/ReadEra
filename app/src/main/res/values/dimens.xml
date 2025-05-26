@@ -12,4 +12,7 @@
     <dimen name="text_size_small">12sp</dimen>
     <dimen name="text_size_medium">16sp</dimen>
     <dimen name="text_size_large">20sp</dimen>
+
+    <!-- TableOfContentsAdapter -->
+    <dimen name="toc_indent_level">24dp</dimen>
 </resources>

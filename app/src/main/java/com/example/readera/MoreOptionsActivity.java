@@ -1,5 +1,7 @@
 package com.example.readera;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
@@ -22,12 +24,20 @@ import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
 public class MoreOptionsActivity extends AppCompatActivity {
+    private Uri fileUri; // 存储从 ReadingActivity 接收到的文件 URI
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_more_options); // 设置我们刚刚创建的布局
         EdgeToEdge.enable(this);
+
+        // 从 Intent 中获取文件 URI
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra("FILE_URI")) {
+            fileUri = intent.getParcelableExtra("FILE_URI");
+        }
+
         // 获取顶部工具栏的引用
         LinearLayout moreOptionsTopBar = findViewById(R.id.more_options_top_bar);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.more_options_top_main), (v, insets) -> {
@@ -47,7 +57,7 @@ public class MoreOptionsActivity extends AppCompatActivity {
         TabLayout tabLayout = findViewById(R.id.tab_layout_more_options);
         ImageView backButton = findViewById(R.id.iv_more_back);
         // 设置 ViewPager2 的适配器
-        MoreOptionsPagerAdapter adapter = new MoreOptionsPagerAdapter(this);
+        MoreOptionsPagerAdapter adapter = new MoreOptionsPagerAdapter(this,fileUri);
         viewPager.setAdapter(adapter);
 
         // 使用 TabLayoutMediator 将 TabLayout 和 ViewPager2 关联起来
@@ -84,8 +94,11 @@ public class MoreOptionsActivity extends AppCompatActivity {
      */
     private class MoreOptionsPagerAdapter extends FragmentStateAdapter {
 
-        public MoreOptionsPagerAdapter(FragmentActivity fragmentActivity) {
+        private Uri adapterFileUri; // 适配器内部存储的 fileUri
+
+        public MoreOptionsPagerAdapter(FragmentActivity fragmentActivity, Uri fileUri) {
             super(fragmentActivity);
+            this.adapterFileUri = fileUri; // 接收并存储 fileUri
         }
 
         @Override
@@ -97,7 +110,7 @@ public class MoreOptionsActivity extends AppCompatActivity {
         public Fragment createFragment(int position) {
             switch (position) {
                 case 0:
-                    return new TableOfContentsFragment(); // 返回目录 Fragment 实例
+                    return TableOfContentsFragment.newInstance(adapterFileUri);// 返回目录 Fragment 实例
                 case 1:
                     return new BookmarksFragment();       // 返回书签 Fragment 实例
                 default:

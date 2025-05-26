@@ -3,6 +3,8 @@ package com.example.readera.utiles;
 import android.content.Context;
 import android.graphics.Typeface; // 导入 Typeface
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import java.util.List;
@@ -15,15 +17,17 @@ public class NovelReaderManager {
     private static final String TAG = "NovelReaderManager";
     private static NovelReaderManager instance;
 
-    private TextPager currentTextPager;
+    private TextPager currentTextPager;// 存储当前分页好的 TextPager 实例
     private Uri currentFileUri;
     private Future<?> paginationTask; // 用于管理异步分页任务
 
-    // 使用固定线程池，避免频繁创建销毁线程
-    private ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService; // 使用固定线程池
+    private final Handler mainThreadHandler; // 用于在主线程回调
 
     private NovelReaderManager() {
         // 私有构造函数，确保单例
+        executorService = Executors.newSingleThreadExecutor(); // 确保只有一个分页任务在进行
+        mainThreadHandler = new Handler(Looper.getMainLooper()); // 用于在主线程回调
     }
 
     public static synchronized NovelReaderManager getInstance() {

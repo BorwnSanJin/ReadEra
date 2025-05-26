@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets; // 引入 StandardCharsets
 
+//文本读取
 public class TextFileReader {
     private static final String TAG = "TextFileReader";
 

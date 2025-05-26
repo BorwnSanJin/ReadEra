@@ -31,8 +31,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.readera.Adapter.NovelPageAdapter;
+import com.example.readera.Adapter.TableOfContentsAdapter;
 import com.example.readera.databinding.ActivityReadingBinding;
 import com.example.readera.fragments.SettingsBottomSheetFragment;
+import com.example.readera.fragments.TableOfContentsFragment;
 import com.example.readera.model.Bookmark;
 import com.example.readera.utiles.NovelReaderManager;
 import com.example.readera.utiles.ReadingSettingsManager;
@@ -118,6 +120,9 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
         binding.ivMore.setOnClickListener(v -> {
             // 当 iv_more 被点击时，启动 MoreOptionsActivity
             Intent intent = new Intent(ReadingActivity.this, MoreOptionsActivity.class);
+            if (fileUri != null) { // 确保 fileUri 不为空
+                intent.putExtra("FILE_URI", fileUri); // 将当前阅读的文件URI传递给 MoreOptionsActivity
+            }
             startActivity(intent);
         });
         binding.ivSettings.setOnClickListener(v -> {
@@ -362,6 +367,7 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
                     }
                 }
         );
+
     }
 
     /**
@@ -552,6 +558,7 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
         return fileName + " - " + firstLine + " (P." + (pageIndex + 1) + ")";
     }
 
+    //获取第一行
     @NonNull
     private String getFirstLine(int pageIndex) {
         // 从 NovelReaderManager 获取当前的 TextPager 实例，再获取页面内容
@@ -688,7 +695,8 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
      * @param bgColor 要应用的背景颜色（int 类型）
      * @param textColor 要应用的文本颜色（int 类型）
      */
-    private void applyReadingTheme(int bgColor, int textColor) { // 参数改为 int 颜色值
+    private void applyReadingTheme(int bgColor, int textColor) {
+        // 参数改为 int 颜色值
         // 应用到根布局背景
         binding.readerRootLayout.setBackgroundColor(bgColor); // 直接使用传入的 int 颜色值
         applyCurrentReadingSettingsToVisiblePages();
@@ -768,10 +776,11 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
             // 注意：这里需要获取当前的 ViewPager2 尺寸
             int vp2Width = vp2NovelPages.getWidth();
             int vp2Height = vp2NovelPages.getHeight();
+            int vp2PaddingTop = vp2NovelPages.getPaddingTop();
             if (vp2Width > 0 && vp2Height > 0) {
                 int[] pagePaddingPx = readingSettings.getPagePaddingPx();
                 int novelPageInternalPaddingPxHorizontal = pagePaddingPx[0] + pagePaddingPx[2];
-                int novelPageInternalPaddingPxVertical = pagePaddingPx[1] + pagePaddingPx[3];
+                int novelPageInternalPaddingPxVertical = vp2PaddingTop + pagePaddingPx[3];
 
                 int actualContentWidthPx = vp2Width - novelPageInternalPaddingPxHorizontal;
                 int actualContentHeightPx = vp2Height - novelPageInternalPaddingPxVertical;
