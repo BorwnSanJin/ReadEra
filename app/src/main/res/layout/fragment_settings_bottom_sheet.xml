@@ -1,18 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:background="@drawable/bottom_sheet_background"> <TextView
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="阅读设置"
-    android:textSize="22sp"
-    android:textColor="@android:color/black"
-    android:textStyle="bold"
-    android:gravity="center"
-    android:layout_marginBottom="24dp"/>
+    android:background="@drawable/bottom_sheet_background"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="阅读设置"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:textColor="@color/black"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="字体大小"
+        android:textSize="16sp"
+        android:textColor="@color/black"
+        android:layout_marginBottom="8dp"/>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -21,38 +33,45 @@
         android:gravity="center_vertical"
         android:layout_marginBottom="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="字体大小"
-            android:textSize="16sp"
-            android:textColor="@android:color/black"/>
-
-        <SeekBar
-            android:id="@+id/seek_bar_font_size"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:min="12"
-            android:max="24"
-            android:progress="16"
-            android:layout_marginStart="16dp"/>
+        <ImageView
+            android:id="@+id/btn_font_size_decrease"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_minus"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="4dp"
+            android:contentDescription="减小字体"
+            app:tint="@color/black"/>
 
         <TextView
             android:id="@+id/tv_current_font_size"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="18sp"
             android:textSize="16sp"
-            android:textColor="@android:color/black"
-            android:text="16sp"/>
+            android:textColor="@color/black"
+            android:gravity="center"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"/>
+
+        <ImageView
+            android:id="@+id/btn_font_size_increase"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_plus"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="4dp"
+            android:contentDescription="增大字体"
+            app:tint="@color/black"/>
     </LinearLayout>
 
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="阅读背景"
+        android:text="背景颜色"
         android:textSize="16sp"
-        android:textColor="@android:color/black"
+        android:textColor="@color/black"
         android:layout_marginBottom="8dp"/>
 
     <LinearLayout
@@ -62,34 +81,104 @@
         android:gravity="center"
         android:layout_marginBottom="16dp">
 
-        <View
-            android:id="@+id/bg_white"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="#FFFFFF"
+        <FrameLayout
+            android:id="@+id/bg_white_container"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="16dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:tag="#FFFFFF"/>
+            android:background="@drawable/bg_option_border_unselected">
+            <View
+                android:id="@+id/bg_white"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
+                android:background="@color/reading_bg_white" />
+        </FrameLayout>
 
-        <View
-            android:id="@+id/bg_green"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="#E8F5E9"
+        <FrameLayout
+            android:id="@+id/bg_gray_container"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="16dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:tag="#E8F5E9"/>
+            android:background="@drawable/bg_option_border_unselected">
+            <View
+                android:id="@+id/bg_gray"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
+                android:background="@color/reading_bg_gray" />
+        </FrameLayout>
 
-        <View
-            android:id="@+id/bg_dark"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="#333333"
-            android:clickable="true"
-            android:focusable="true"
-            android:tag="#333333"/>
+        <FrameLayout
+            android:id="@+id/bg_green_container"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_option_border_unselected">
+            <View
+                android:id="@+id/bg_green"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
+                android:background="@color/reading_bg_greenish" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/bg_dark_container"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_option_border_unselected">
+            <View
+                android:id="@+id/bg_dark"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
+                android:background="@color/reading_bg_dark" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="字体"
+        android:textSize="16sp"
+        android:textColor="@color/black"
+        android:layout_marginBottom="8dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/btn_font_system_default"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="默认"
+            android:textAllCaps="false"
+            android:textColor="@color/black"
+            android:textSize="14sp"
+            android:layout_marginEnd="8dp" />
+
+        <Button
+            android:id="@+id/btn_font_serif"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="宋体"
+            android:textAllCaps="false"
+            android:fontFamily="serif"
+            android:textColor="@color/black"
+            android:textSize="14sp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"/>
+
+
     </LinearLayout>
 
 </LinearLayout>

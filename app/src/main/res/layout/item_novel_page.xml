@@ -3,8 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center_horizontal"
-    android:background="@android:color/white">
+    android:gravity="center_horizontal">
     <com.example.readera.views.NovelPageView
         android:id="@+id/novel_page_view"
         android:layout_width="match_parent"

@@ -43,7 +43,7 @@ import com.example.readera.views.NovelPageView;
 import java.util.List;
 import java.util.Objects;
 
-public class ReadingActivity extends AppCompatActivity {
+public class ReadingActivity extends AppCompatActivity implements SettingsBottomSheetFragment.OnSettingsChangeListener{
     private static final String TAG = "ReadingActivity";
 
     private ActivityReadingBinding binding;
@@ -78,6 +78,9 @@ public class ReadingActivity extends AppCompatActivity {
     private Typeface currentTypeface; // 当前字体
     private int[] currentPagePaddingPx; // 当前页面内边距（像素）
 
+    private int currentBackgroundColor;
+    private int currentTextColor;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -105,6 +108,10 @@ public class ReadingActivity extends AppCompatActivity {
         View leftTapArea = binding.leftTapArea; // 左侧点击区域
         View centerTapArea = binding.centerTapArea; // 中间点击区域
         View rightTapArea = binding.rightTapArea; // 右侧点击区域
+
+        currentBackgroundColor = readingSettings.getBackgroundColor(); // 初始化背景色
+        currentTextColor = readingSettings.getTextColor(); // 初始化文本颜色
+        applyReadingTheme(currentBackgroundColor, currentTextColor); // 首次应用背景色和文本颜色
 
         // --- 基本控件操作 ---
         binding.ivBack.setOnClickListener(v -> finish()); // 返回按钮点击事件
@@ -151,6 +158,8 @@ public class ReadingActivity extends AppCompatActivity {
             currentLineSpacingExtraDp = readingSettings.getLineSpacingExtraDp();
             currentTypeface = readingSettings.getTypeface();
             currentPagePaddingPx = readingSettings.getPagePaddingPx();
+            currentBackgroundColor = readingSettings.getBackgroundColor();
+            currentTextColor = readingSettings.getTextColor();
 
             return insets; // 返回处理后的 Insets
         });
@@ -170,6 +179,8 @@ public class ReadingActivity extends AppCompatActivity {
 
                 Log.d(TAG, "onGlobalLayout 触发。ViewPager2 尺寸: " + vp2Width + "x" + vp2Height);
 
+                int vp2PaddingTop = vp2NovelPages.getPaddingTop();
+
                 // 确保尺寸有效且尚未触发分页
                 if (vp2Width > 0 && vp2Height > 0 && !isPaginationTriggered) {
                     isPaginationTriggered = true; // 标记已触发
@@ -179,7 +190,7 @@ public class ReadingActivity extends AppCompatActivity {
                     // 只需要从这个区域中扣除 NovelPageView 自身的内部文本边距即可。
                     int[] pagePaddingPx = readingSettings.getPagePaddingPx();
                     int novelPageInternalPaddingPxHorizontal = pagePaddingPx[0] + pagePaddingPx[2]; // 左右内边距之和
-                    int novelPageInternalPaddingPxVertical = pagePaddingPx[1] + pagePaddingPx[3]; // 上下内边距之和
+                    int novelPageInternalPaddingPxVertical = pagePaddingPx[3]+vp2PaddingTop; // 上下内边距之和
 
                     int actualContentWidthPx = vp2Width - novelPageInternalPaddingPxHorizontal;
                     int actualContentHeightPx = vp2Height - novelPageInternalPaddingPxVertical;
@@ -266,20 +277,22 @@ public class ReadingActivity extends AppCompatActivity {
                 // 自动保存当前阅读进度
                 readingSettings.saveLastReadPage(fileUri, position);
                 Log.d(TAG, "自动保存书签到页面: " + position);
-
-                // 当页面切换时，确保新显示的 NovelPageView 应用了最新的阅读设置
-                RecyclerView recyclerView = (RecyclerView) vp2NovelPages.getChildAt(0);
-                if (recyclerView != null) {
-                    NovelPageViewHolder currentHolder = (NovelPageViewHolder) recyclerView.findViewHolderForAdapterPosition(position);
-                    if (currentHolder != null && currentHolder.novelPageView != null) {
-                        applyNovelPageViewSettings(currentHolder.novelPageView);
-                    }
-                }
             }
         });
 
         // 首次加载时立即隐藏菜单栏
         hideBarsImmediately();
+    }
+
+
+    /**
+     * 实现 SettingsBottomSheetFragment.OnSettingsChangeListener 接口的方法
+     * 当设置弹窗中的设置发生变化时，此方法会被调用。
+     */
+    @Override
+    public void onReadingSettingsChanged() {
+        Log.d(TAG, "onReadingSettingsChanged: 接收到设置更改通知。");
+        checkForReadingSettingsChangesAndRepaginate();
     }
 
     /**
@@ -336,15 +349,6 @@ public class ReadingActivity extends AppCompatActivity {
                             updateProgressUI(vp2NovelPages.getCurrentItem()); // 更新 UI 显示
 
                             hideLoadingIndicator(); // 隐藏加载指示器
-
-                            // 确保当前可见的 NovelPageView 应用了所有设置
-                            RecyclerView recyclerView = (RecyclerView) vp2NovelPages.getChildAt(0);
-                            if (recyclerView != null) {
-                                NovelPageViewHolder currentHolder = (NovelPageViewHolder) recyclerView.findViewHolderForAdapterPosition(vp2NovelPages.getCurrentItem());
-                                if (currentHolder != null && currentHolder.novelPageView != null) {
-                                    applyNovelPageViewSettings(currentHolder.novelPageView);
-                                }
-                            }
                         });
                     }
 
@@ -600,9 +604,16 @@ public class ReadingActivity extends AppCompatActivity {
         Typeface newTypeface = readingSettings.getTypeface();
         int[] newPagePaddingPx = readingSettings.getPagePaddingPx();
 
+        int newBackgroundColor = readingSettings.getBackgroundColor(); // 获取新的背景色
+        int newTextColor = readingSettings.getTextColor(); // 获取新的文本颜色
+        int vp2PaddingTop = vp2NovelPages.getPaddingTop();
+
         // 比较各项设置是否发生变化
         boolean textSizeChanged = (newTextSizeSp != currentTextSizeSp);
         boolean lineSpacingChanged = (newLineSpacingExtraDp != currentLineSpacingExtraDp);
+        boolean backgroundColorChanged = (newBackgroundColor != currentBackgroundColor); // 检查背景色是否变化
+        boolean textColorChanged = (newTextColor != currentTextColor); // 检查文本颜色是否变化
+
         // 使用 Objects.equals() 来安全地比较可能为 null 的对象
         boolean typefaceChanged = !Objects.equals(newTypeface, currentTypeface);
         boolean paddingChanged = false;
@@ -643,7 +654,7 @@ public class ReadingActivity extends AppCompatActivity {
             if (vp2Width > 0 && vp2Height > 0 && fileUri != null) {
                 int[] pagePaddingPx = readingSettings.getPagePaddingPx();
                 int novelPageInternalPaddingPxHorizontal = pagePaddingPx[0] + pagePaddingPx[2];
-                int novelPageInternalPaddingPxVertical = pagePaddingPx[1] + pagePaddingPx[3];
+                int novelPageInternalPaddingPxVertical = vp2PaddingTop+ pagePaddingPx[3];
 
                 int actualContentWidthPx = vp2Width - novelPageInternalPaddingPxHorizontal;
                 int actualContentHeightPx = vp2Height - novelPageInternalPaddingPxVertical;
@@ -654,16 +665,48 @@ public class ReadingActivity extends AppCompatActivity {
             } else {
                 Log.w(TAG, "无法重新分页：ViewPager2 尺寸无效或 fileUri 为 null。");
             }
+        }
+        // 如果背景色或文本颜色发生变化，则应用主题
+        if (backgroundColorChanged || textColorChanged) {
+            Log.d(TAG, "阅读主题颜色已更改。应用新主题中...");
+            Log.d(TAG, String.format("背景色变化: %b (旧: #%06X, 新: #%06X)", backgroundColorChanged, currentBackgroundColor, newBackgroundColor));
+            Log.d(TAG, String.format("文本颜色变化: %b (旧: #%06X, 新: #%06X)", textColorChanged, currentTextColor, newTextColor));
+
+            // 更新缓存的颜色设置
+            currentBackgroundColor = newBackgroundColor;
+            currentTextColor = newTextColor;
+
+            // 应用新的主题（背景色和文本颜色）
+            applyReadingTheme(newBackgroundColor, newTextColor);
         } else {
             Log.d(TAG, "阅读设置未改变。");
-            // 如果设置没有改变，但可能有新的 NovelPageView 因滚动而创建，
-            // 确保其设置已应用。这主要由 onPageSelected 处理。
-            // 但对于当前已加载并可见的页面，这里可以额外确保一次。
-            RecyclerView recyclerView = (RecyclerView) vp2NovelPages.getChildAt(0);
-            if (recyclerView != null) {
-                NovelPageViewHolder currentHolder = (NovelPageViewHolder) recyclerView.findViewHolderForAdapterPosition(vp2NovelPages.getCurrentItem());
-                if (currentHolder != null && currentHolder.novelPageView != null) {
-                    applyNovelPageViewSettings(currentHolder.novelPageView);
+        }
+    }
+
+    /**
+     * 应用当前的阅读主题（背景色和文本颜色）到根布局和可见的 NovelPageView。
+     * @param bgColor 要应用的背景颜色（int 类型）
+     * @param textColor 要应用的文本颜色（int 类型）
+     */
+    private void applyReadingTheme(int bgColor, int textColor) { // 参数改为 int 颜色值
+        // 应用到根布局背景
+        binding.readerRootLayout.setBackgroundColor(bgColor); // 直接使用传入的 int 颜色值
+        applyCurrentReadingSettingsToVisiblePages();
+    }
+    /**
+     * 遍历当前 ViewPager2 中所有可见的 NovelPageView 并应用最新的阅读设置。
+     * 这个方法在主题（背景色/文本颜色）变化时尤其重要。
+     */
+    private void applyCurrentReadingSettingsToVisiblePages() {
+        // 获取 ViewPager2 内部的 RecyclerView
+        RecyclerView recyclerView = (RecyclerView) vp2NovelPages.getChildAt(0);
+        if (recyclerView != null) {
+            // 遍历所有可见的 ViewHolder
+            for (int i = 0; i < recyclerView.getChildCount(); i++) {
+                View child = recyclerView.getChildAt(i);
+                NovelPageViewHolder holder = (NovelPageViewHolder) recyclerView.getChildViewHolder(child);
+                if (holder != null && holder.novelPageView != null) {
+                    applyNovelPageViewSettings(holder.novelPageView);
                 }
             }
         }

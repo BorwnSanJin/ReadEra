@@ -14,89 +14,98 @@ import android.view.View;
 import androidx.annotation.Nullable;
 import androidx.core.content.res.ResourcesCompat;
 
+import java.util.Objects;
+
 //自定义view
 public class NovelPageView extends View {
 
     private TextPaint textPaint;
     private StaticLayout staticLayout;
-    private String pageText;
+    private String pageText = "";
 
     // 阅读设置
-    private int textSizePx; // 文本大小，单位像素
+    private float  textSizeSp; // 文本大小，单位像素
     private int textColor; // 文本颜色
-    private int lineSpacingExtraPx; // 行间距，单位像素
+    private float  lineSpacingExtraDp; // 行间距，单位像素
     private Typeface textTypeface; // 字体
     private int pagePaddingLeft, pagePaddingTop, pagePaddingRight, pagePaddingBottom; // 页面内边距
 
     public NovelPageView(Context context) {
         super(context);
-        init(context, null);
+        init();
     }
 
     public NovelPageView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
-        init(context, attrs);
+        init();
     }
 
     public NovelPageView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init(context, attrs);
+        init();
     }
 
-    private void init(Context context, @Nullable AttributeSet attrs) {
+    private void init() {
         textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG); // 开启抗锯齿，使文本更平滑
-        // 默认设置 - 这些将在 ReadingActivity 中更精确地设置
-        setTextColor(android.graphics.Color.BLACK); // 默认黑色文本
-        setTextSize(18); // 默认 18sp
-        setLineSpacingExtra(4); // 默认 4dp
-        // 替换为您的字体，例如：
-        // setTypeface(ResourcesCompat.getFont(context, R.font.your_font_name));
-        // 或者使用系统字体：setTypeface(Typeface.create(Typeface.SERIF, Typeface.NORMAL));
+        // 默认设置 - 这些将被 ReadingSettingsManager 覆盖
+        this.textSizeSp = 18f;
+        this.lineSpacingExtraDp = 8f;
+        this.textColor = android.graphics.Color.BLACK;
+        this.textTypeface = Typeface.DEFAULT;
+        textPaint.setColor(this.textColor);
+        textPaint.setTextSize(spToPx(this.textSizeSp));
+        textPaint.setTypeface(this.textTypeface);
 
-        // 页面内容默认内边距，如果父布局未设置
-        setPagePadding(
-                (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16, getResources().getDisplayMetrics()),
-                (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics()),
-                (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16, getResources().getDisplayMetrics()),
-                (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8, getResources().getDisplayMetrics())
-        );
+        int defaultPaddingPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16, getResources().getDisplayMetrics());
+        setPagePadding(defaultPaddingPx, defaultPaddingPx / 2, defaultPaddingPx, defaultPaddingPx / 2);
     }
 
     // --- 公共设置方法，用于阅读设置 ---
 
-    public void setTextSize(int sp) {
-        this.textSizePx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, getResources().getDisplayMetrics());
-        textPaint.setTextSize(textSizePx);
-        requestLayout(); // 文本大小改变时请求重新测量布局
-        invalidate(); // 重绘视图
+    public void setTextSize(float  sp) {
+        if (this.textSizeSp != sp) {
+            this.textSizeSp = sp;
+            textPaint.setTextSize(spToPx(this.textSizeSp));
+            recreateStaticLayout();
+            invalidate();
+        }
     }
 
     public void setTextColor(int color) {
-        this.textColor = color;
-        textPaint.setColor(textColor);
-        invalidate(); // 重绘视图
+        if (this.textColor != color) {
+            this.textColor = color;
+            textPaint.setColor(this.textColor);
+            invalidate();
+        }
     }
 
-    public void setLineSpacingExtra(int dp) {
-        this.lineSpacingExtraPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics());
-        requestLayout();
-        invalidate();
+    public void setLineSpacingExtra(float dp) {
+        if (this.lineSpacingExtraDp != dp) {
+            this.lineSpacingExtraDp = dp;
+            recreateStaticLayout();
+            invalidate();
+        }
     }
 
     public void setTypeface(Typeface typeface) {
-        this.textTypeface = typeface;
-        textPaint.setTypeface(textTypeface);
-        requestLayout();
-        invalidate();
+        if (!Objects.equals(this.textTypeface, typeface)) {
+            this.textTypeface = typeface;
+            textPaint.setTypeface(this.textTypeface);
+            recreateStaticLayout();
+            invalidate();
+        }
     }
 
     public void setPagePadding(int left, int top, int right, int bottom) {
-        this.pagePaddingLeft = left;
-        this.pagePaddingTop = top;
-        this.pagePaddingRight = right;
-        this.pagePaddingBottom = bottom;
-        requestLayout();
-        invalidate();
+        if (this.pagePaddingLeft != left || this.pagePaddingTop != top ||
+                this.pagePaddingRight != right || this.pagePaddingBottom != bottom) {
+            this.pagePaddingLeft = left;
+            this.pagePaddingTop = top;
+            this.pagePaddingRight = right;
+            this.pagePaddingBottom = bottom;
+            recreateStaticLayout();
+            invalidate();
+        }
     }
 
     /**
@@ -104,9 +113,13 @@ public class NovelPageView extends View {
      * @param text 要显示在此页面的字符串内容。
      */
     public void setPageText(String text) {
-        this.pageText = text;
-        recreateStaticLayout(); // 文本或尺寸改变时重新创建布局
-        invalidate(); // 请求重绘
+        if (text == null) {
+            this.pageText = "";
+        } else {
+            this.pageText = text;
+        }
+        recreateStaticLayout();
+        invalidate();
     }
 
     /**
@@ -115,36 +128,31 @@ public class NovelPageView extends View {
      */
     private void recreateStaticLayout() {
         if (getWidth() == 0 || getHeight() == 0 || pageText == null) {
-            staticLayout = null; // 如果尺寸未准备好，则不创建
+            staticLayout = null;
             return;
         }
 
-        // 计算文本可用的宽度，考虑内边距
         int availableWidth = getWidth() - pagePaddingLeft - pagePaddingRight;
-
         if (availableWidth <= 0) {
             staticLayout = null;
             return;
         }
 
-        // 对于 API 23+ 优先使用 StaticLayout.Builder
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             staticLayout = StaticLayout.Builder.obtain(pageText, 0, pageText.length(), textPaint, availableWidth)
                     .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                    .setLineSpacing(lineSpacingExtraPx, 1.0f) // add, mult (添加额外间距，倍数)
-                    .setIncludePad(false) // 是否包含额外的垂直填充（顶部/底部）
+                    .setLineSpacing(dpToPx(lineSpacingExtraDp), 1.0f)
+                    .setIncludePad(false)
                     .build();
         } else {
-            // 对于较新的 API 已废弃，但为了兼容性需要
             staticLayout = new StaticLayout(pageText, textPaint, availableWidth,
-                    Layout.Alignment.ALIGN_NORMAL, 1.0f, lineSpacingExtraPx, false);
+                    Layout.Alignment.ALIGN_NORMAL, 1.0f, dpToPx(lineSpacingExtraDp), false);
         }
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        // 测量后，如果尺寸改变，重新创建 StaticLayout
         recreateStaticLayout();
     }
 
@@ -169,13 +177,17 @@ public class NovelPageView extends View {
         }
     }
 
+    private float spToPx(float spValue) {
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, spValue, getResources().getDisplayMetrics());
+    }
+
     /**
      * 将 DP 转换为 PX 的辅助方法，用于 TextPager 中的内容测量。
      * @param dpValue DP 值
      * @return PX 值
      */
-    public int dpToPx(int dpValue) {
-        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dpValue, getResources().getDisplayMetrics());
+    private float dpToPx(float dpValue) {
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dpValue, getResources().getDisplayMetrics());
     }
 
     /**
@@ -201,4 +213,5 @@ public class NovelPageView extends View {
     public TextPaint getTextPaint() {
         return textPaint;
     }
+
 }

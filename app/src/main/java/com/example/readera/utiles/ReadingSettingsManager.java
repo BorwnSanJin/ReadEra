@@ -7,6 +7,7 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.util.Log;
 
+import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat; // 用于字体
 
 import com.example.readera.R; // 确保导入您的 R 文件
@@ -30,6 +31,7 @@ public class ReadingSettingsManager {
     private static final String KEY_PADDING_RIGHT = "padding_right_px";
     private static final String KEY_PADDING_BOTTOM = "padding_bottom_px";
     private static final String KEY_TEXT_COLOR = "text_color";
+    private static final String KEY_BACKGROUND_COLOR = "background_color"; // 新增背景颜色键
     private static final String KEY_FONT_PATH = "font_path"; // 用于存储字体文件路径或资源ID
 
     // --- 修改：书签相关键 ---
@@ -43,11 +45,12 @@ public class ReadingSettingsManager {
     private Gson gson;
 
     // 默认值
-    private static final int DEFAULT_TEXT_SIZE_SP = 18;
-    private static final int DEFAULT_LINE_SPACING_DP = 8;
+    private static final float  DEFAULT_TEXT_SIZE_SP = 18f;
+    private static final float  DEFAULT_LINE_SPACING_DP = 8f;
     private static final int DEFAULT_PADDING_DP = 16;
-    private static final int DEFAULT_TEXT_COLOR = Color.BLACK;
-    private static final String DEFAULT_FONT_PATH = ""; // 默认无特定字体
+    private static final int DEFAULT_BACKGROUND_COLOR_RES = R.color.reading_bg_white; // 默认白色
+    private static final int DEFAULT_TEXT_COLOR = R.color.reading_text_dark;// 默认深色文本
+    private static final String DEFAULT_FONT_NAME  = "system_default"; // 默认无特定字体
 
     public ReadingSettingsManager(Context context) {
         this.context = context;
@@ -58,20 +61,21 @@ public class ReadingSettingsManager {
                 .create();
     }
 
-    public int getTextSizeSp() {
-        return prefs.getInt(KEY_TEXT_SIZE, DEFAULT_TEXT_SIZE_SP);
+    public float getTextSizeSp() {
+        return prefs.getFloat(KEY_TEXT_SIZE, DEFAULT_TEXT_SIZE_SP);
     }
 
-    public void setTextSizeSp(int size) {
-        prefs.edit().putInt(KEY_TEXT_SIZE, size).apply();
+    public void saveTextSize(float textSizeSp) {
+        prefs.edit().putFloat(KEY_TEXT_SIZE, textSizeSp).apply();
     }
 
-    public int getLineSpacingExtraDp() {
-        return prefs.getInt(KEY_LINE_SPACING, DEFAULT_LINE_SPACING_DP);
+    //行间距设置
+    public float  getLineSpacingExtraDp() {
+        return prefs.getFloat(KEY_LINE_SPACING, DEFAULT_LINE_SPACING_DP);
     }
 
-    public void setLineSpacingExtraDp(int spacing) {
-        prefs.edit().putInt(KEY_LINE_SPACING, spacing).apply();
+    public void saveLineSpacingExtra(int lineSpacingDp) {
+        prefs.edit().putFloat(KEY_LINE_SPACING, lineSpacingDp).apply();
     }
 
     /**
@@ -98,34 +102,45 @@ public class ReadingSettingsManager {
                 .apply();
     }
 
+    //文本颜色设置
     public int getTextColor() {
         return prefs.getInt(KEY_TEXT_COLOR, DEFAULT_TEXT_COLOR);
     }
 
-    public void setTextColor(int color) {
+    public void saveTextColor(int color) {
         prefs.edit().putInt(KEY_TEXT_COLOR, color).apply();
     }
 
-    public Typeface getTypeface() {
-        String fontPath = prefs.getString(KEY_FONT_PATH, DEFAULT_FONT_PATH);
-        if (!fontPath.isEmpty()) {
-            try {
-                // 如果是资源ID，例如 R.font.your_font
-                int resId = Integer.parseInt(fontPath);
-                return ResourcesCompat.getFont(context, resId);
-            } catch (NumberFormatException e) {
-                // 否则，尝试从 assets 或文件路径加载
-                // 这里的实现取决于您如何存储和加载字体文件
-                // 例如：return Typeface.createFromAsset(context.getAssets(), fontPath);
-                // 或者更复杂的逻辑来处理外部文件
-                return Typeface.DEFAULT; // 暂时返回默认字体
-            }
-        }
-        return Typeface.DEFAULT; // 默认字体
+    // 新增：获取背景颜色
+    public int getBackgroundColor() {
+        int defaultColor = ContextCompat.getColor(context, DEFAULT_BACKGROUND_COLOR_RES);
+        // 默认背景颜色是一个资源ID，需要转换为实际的int颜色值进行存储和比较
+        return prefs.getInt(KEY_BACKGROUND_COLOR, defaultColor);
     }
 
-    public void setTypeface(String fontPath) {
-        prefs.edit().putString(KEY_FONT_PATH, fontPath).apply();
+    public void saveBackgroundColor(int newBgColor) {
+        prefs.edit().putInt(KEY_BACKGROUND_COLOR, newBgColor).apply();
+    }
+
+    //字体设置
+    public Typeface getTypeface() {
+        String fontIdentifier = prefs.getString(KEY_FONT_PATH, DEFAULT_FONT_NAME);
+        switch (fontIdentifier) {
+            case "serif":
+                try {
+                    return ResourcesCompat.getFont(context, R.font.serif);
+                } catch (Exception e) {
+                    Log.e("ReadingSettingsManager", "Error loading serif font: " + e.getMessage());
+                    return Typeface.DEFAULT;
+                }
+            case "system_default":
+            default:
+                return Typeface.DEFAULT;
+        }
+    }
+
+    public void saveFont(String fontIdentifier) {
+        prefs.edit().putString(KEY_FONT_PATH, fontIdentifier).apply();
     }
 
     /**
