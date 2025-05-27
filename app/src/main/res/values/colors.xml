@@ -5,6 +5,7 @@
     <color name="dodger_blue">#1E90FF</color>
     <color name="bar_color">#6750A4</color>
     <color name="purple_500">#FF6200EE</color>
+    <color name="unselected_gray">#808080</color>
 
     <color name="reading_bg_white">#FFFFFFFF</color>
     <color name="reading_bg_gray">#f0f0f0</color>
