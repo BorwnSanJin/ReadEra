@@ -36,18 +36,21 @@ import com.example.readera.databinding.ActivityReadingBinding;
 import com.example.readera.fragments.SettingsBottomSheetFragment;
 import com.example.readera.fragments.TableOfContentsFragment;
 import com.example.readera.model.Bookmark;
+import com.example.readera.model.TableOfContents;
 import com.example.readera.utiles.NovelReaderManager;
 import com.example.readera.utiles.ReadingSettingsManager;
 import com.example.readera.utiles.SystemUiController;
+import com.example.readera.utiles.TableOfContentsGenerator;
 import com.example.readera.utiles.TextPager;
 import com.example.readera.views.NovelPageView;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 public class ReadingActivity extends AppCompatActivity implements SettingsBottomSheetFragment.OnSettingsChangeListener{
     private static final String TAG = "ReadingActivity";
-
+    private List<TableOfContents> currentTableOfContents; // 新增：缓存目录数据
     private ActivityReadingBinding binding;
     private LinearLayout topBar; // 顶部工具栏
     private LinearLayout bottomBar; // 底部工具栏
@@ -122,6 +125,12 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
             Intent intent = new Intent(ReadingActivity.this, MoreOptionsActivity.class);
             if (fileUri != null) { // 确保 fileUri 不为空
                 intent.putExtra("FILE_URI", fileUri); // 将当前阅读的文件URI传递给 MoreOptionsActivity
+            }
+            if (currentTableOfContents != null && !currentTableOfContents.isEmpty()) {
+                intent.putExtra("TABLE_OF_CONTENTS", new ArrayList<>(currentTableOfContents)); // 传递目录数据
+                Log.d(TAG, "ReadingActivity: 传递目录数据，条目数: " + currentTableOfContents.size());
+            }else {
+                Log.d(TAG, "ReadingActivity: currentTableOfContents 为空或 null，不传递目录数据。");
             }
             startActivity(intent);
         });
@@ -331,6 +340,26 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
                             // 设置 ViewPager2 的适配器
                             pageAdapter = new NovelPageAdapter(pages);
                             vp2NovelPages.setAdapter(pageAdapter);
+                            // --- 新增：在分页完成后生成并缓存目录 ---
+                            // 需要 TextPager 实例来生成目录。
+                            // 由于 NovelReaderManager.loadAndPaginateTextAsync 现在直接返回 List<String> pages，
+                            // 而 TableOfContentsGenerator.generateSimpleToc 需要 TextPager。
+                            // 这里需要获取 TextPager 实例或者改造 TableOfContentsGenerator.generateSimpleToc
+                            // 我假设 NovelReaderManager 内部会维护一个 TextPager 实例，或者可以在 NovelReaderManager 中添加一个方法来获取它。
+                            // 如果 NovelReaderManager.getInstance().getTextPager(uri) 可以获取到，那就这样：
+                            // --- 关键修改：获取当前 TextPager 并生成目录 ---
+                            // 确保当前 TextPager 已经完成分页并设置好
+                            TextPager textPager = NovelReaderManager.getInstance().getCurrentTextPager();
+                            // 检查文件URI是否匹配，以防万一
+                            Uri managerUri = NovelReaderManager.getInstance().getCurrentFileUri();
+                            if (textPager != null && uri.equals(managerUri)) {
+                                currentTableOfContents = TableOfContentsGenerator.generateSimpleToc(textPager);
+                                Log.d(TAG, "目录已生成并缓存，条目数：" + currentTableOfContents.size());
+                            } else {
+                                Log.e(TAG, "无法获取当前 TextPager 实例或文件URI不匹配，目录未能生成。");
+                                currentTableOfContents = new ArrayList<>(); // 确保不为 null
+                            }
+
 
                             // --- 关键修改：加载文件后跳转到保存的书签页或上次阅读进度 ---
                             int initialPageFromIntent = getIntent().getIntExtra("INITIAL_PAGE", -1); // 从 Intent 获取传入的初始页码

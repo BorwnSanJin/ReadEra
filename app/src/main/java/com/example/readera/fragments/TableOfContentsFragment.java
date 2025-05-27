@@ -30,17 +30,21 @@ public class TableOfContentsFragment extends Fragment implements TableOfContents
 
     private static final String ARG_FILE_URI = "file_uri";
     private static final String TAG = "TableOfContentsFragment";
-    private static final String ARG_READING_SETTINGS = "reading_settings"; // 新增用于传递阅读设置的 key
+    private static final String ARG_TABLE_OF_CONTENTS = "table_of_contents"; // 修改为专门的目录数据 key
     private RecyclerView recyclerView;
     private TextView emptyTocText;
     private TableOfContentsAdapter chapterAdapter;
     private Uri fileUri; // 当前阅读的文件 URI
+    private List<TableOfContents> cachedTocEntries; // 新增：用于存储从Bundle传入的目录数据
 
     // 工厂方法，用于创建 Fragment 实例并传递参数
-    public static TableOfContentsFragment newInstance(Uri fileUri) {
+    public static TableOfContentsFragment newInstance(Uri fileUri,List<TableOfContents> tocEntries) {
         TableOfContentsFragment fragment = new TableOfContentsFragment();
         Bundle args = new Bundle();
         args.putParcelable(ARG_FILE_URI, fileUri);
+        if (tocEntries != null) {
+            args.putSerializable(ARG_TABLE_OF_CONTENTS, new ArrayList<>(tocEntries)); // 传递目录数据
+        }
         fragment.setArguments(args);
         return fragment;
     }
@@ -49,6 +53,13 @@ public class TableOfContentsFragment extends Fragment implements TableOfContents
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             fileUri = getArguments().getParcelable(ARG_FILE_URI);
+            // 从 Bundle 中获取缓存的目录数据
+            cachedTocEntries = (List<TableOfContents>) getArguments().getSerializable(ARG_TABLE_OF_CONTENTS);
+            if (cachedTocEntries == null) {
+                cachedTocEntries = new ArrayList<>(); // 确保不为null
+            }
+        } else {
+            cachedTocEntries = new ArrayList<>(); // 确保不为null
         }
     }
 
@@ -64,8 +75,15 @@ public class TableOfContentsFragment extends Fragment implements TableOfContents
         // 初始化适配器，传入一个空的列表和点击监听器
         chapterAdapter = new TableOfContentsAdapter(new ArrayList<>(), this);
         recyclerView.setAdapter(chapterAdapter);
-
-        loadTableOfContents(); // 加载目录
+        // 只有当没有缓存数据时才尝试加载目录
+        if (cachedTocEntries.isEmpty()) {
+            Log.d(TAG, "Bundle中没有缓存目录数据，尝试从NovelReaderManager加载。");
+            loadTableOfContents();
+        } else {
+            Log.d(TAG, "Bundle中存在缓存目录数据，直接显示。条目数: " + cachedTocEntries.size());
+            // 如果有缓存数据，直接更新UI
+            updateUI(cachedTocEntries);
+        }
 
         return view;
     }
@@ -95,6 +113,16 @@ public class TableOfContentsFragment extends Fragment implements TableOfContents
             }
         } else {
             showEmptyTocMessage("小说内容未加载或未分页");
+        }
+    }
+
+    private void updateUI(List<TableOfContents> tocEntries) {
+        if (tocEntries != null && !tocEntries.isEmpty()) {
+            chapterAdapter.updateData(tocEntries);
+            emptyTocText.setVisibility(View.GONE);
+            recyclerView.setVisibility(View.VISIBLE);
+        } else {
+            showEmptyTocMessage("未找到目录内容");
         }
     }
 

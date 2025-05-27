@@ -20,11 +20,15 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.readera.fragments.BookmarksFragment;
 import com.example.readera.fragments.TableOfContentsFragment;
+import com.example.readera.model.TableOfContents;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
+import java.util.List;
+
 public class MoreOptionsActivity extends AppCompatActivity {
     private Uri fileUri; // 存储从 ReadingActivity 接收到的文件 URI
+    private List<TableOfContents> tableOfContentsList; // 接收并存储目录数据
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +41,10 @@ public class MoreOptionsActivity extends AppCompatActivity {
         if (intent != null && intent.hasExtra("FILE_URI")) {
             fileUri = intent.getParcelableExtra("FILE_URI");
         }
+        if (intent != null && intent.hasExtra("TABLE_OF_CONTENTS")) {
+            tableOfContentsList = (List<TableOfContents>) intent.getSerializableExtra("TABLE_OF_CONTENTS");
+        }
+
 
         // 获取顶部工具栏的引用
         LinearLayout moreOptionsTopBar = findViewById(R.id.more_options_top_bar);
@@ -57,8 +65,9 @@ public class MoreOptionsActivity extends AppCompatActivity {
         TabLayout tabLayout = findViewById(R.id.tab_layout_more_options);
         ImageView backButton = findViewById(R.id.iv_more_back);
         // 设置 ViewPager2 的适配器
-        MoreOptionsPagerAdapter adapter = new MoreOptionsPagerAdapter(this,fileUri);
-        viewPager.setAdapter(adapter);
+        // 传递目录数据给适配器
+        MoreOptionsPagerAdapter pagerAdapter = new MoreOptionsPagerAdapter(this, fileUri, tableOfContentsList);
+        viewPager.setAdapter(pagerAdapter);
 
         // 使用 TabLayoutMediator 将 TabLayout 和 ViewPager2 关联起来
         // 并在标签页切换时更新顶部标题
@@ -95,10 +104,12 @@ public class MoreOptionsActivity extends AppCompatActivity {
     private class MoreOptionsPagerAdapter extends FragmentStateAdapter {
 
         private Uri adapterFileUri; // 适配器内部存储的 fileUri
+        private List<TableOfContents> adapterTableOfContentsList; // 接收并存储目录数据
 
-        public MoreOptionsPagerAdapter(FragmentActivity fragmentActivity, Uri fileUri) {
+        public MoreOptionsPagerAdapter(FragmentActivity fragmentActivity, Uri fileUri, List<TableOfContents> tableOfContentsList) {
             super(fragmentActivity);
-            this.adapterFileUri = fileUri; // 接收并存储 fileUri
+            this.adapterFileUri = fileUri;
+            this.adapterTableOfContentsList = tableOfContentsList; // 存储目录数据
         }
 
         @Override
@@ -110,7 +121,7 @@ public class MoreOptionsActivity extends AppCompatActivity {
         public Fragment createFragment(int position) {
             switch (position) {
                 case 0:
-                    return TableOfContentsFragment.newInstance(adapterFileUri);// 返回目录 Fragment 实例
+                    return TableOfContentsFragment.newInstance(adapterFileUri, adapterTableOfContentsList);// 返回目录 Fragment 实例
                 case 1:
                     return new BookmarksFragment();       // 返回书签 Fragment 实例
                 default:
