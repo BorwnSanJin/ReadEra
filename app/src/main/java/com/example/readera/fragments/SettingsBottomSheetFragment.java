@@ -1,4 +1,4 @@
-package com.example.readera.fragments; // 建议放在 fragments 包下
+package com.example.readera.fragments;
 
 import android.content.Context;
 import android.graphics.Color;

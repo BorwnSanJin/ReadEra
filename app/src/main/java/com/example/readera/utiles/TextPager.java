@@ -189,7 +189,7 @@ public class TextPager {
             // 截取当前页的文本内容并添加到 pages 列表中
             String pageContent = fullText.substring(pageStartOffset, pageEndOffset);
             pages.add(pageContent);
-            Log.d(TAG, "分页页面 " + pages.size() + ", 行范围 [" + startLine + ", " + (pageEndLine - 1) + "], 文本长度: " + pageContent.length());
+            //Log.d(TAG, "分页页面 " + pages.size() + ", 行范围 [" + startLine + ", " + (pageEndLine - 1) + "], 文本长度: " + pageContent.length());
 
             // 移动到下一页的起始行
             startLine = pageEndLine;

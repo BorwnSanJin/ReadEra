@@ -48,22 +48,20 @@ public class TableOfContentsGenerator {
 
         for (int i = 0; i < totalPages; i++) {
             String pageContent = pages.get(i);
-            Log.d(TAG, "Processing page " + i + ", content start: \"" + pageContent.substring(0, Math.min(pageContent.length(), 100)).replace("\n", "\\n") + "\"");
+            //Log.d(TAG, "Processing page " + i + ", content start: \"" + pageContent.substring(0, Math.min(pageContent.length(), 100)).replace("\n", "\\n") + "\"");
 
             Matcher matcher = chapterPattern.matcher(pageContent);
-            boolean chapterFoundOnPage = false;
             while (matcher.find()) {
                 String potentialTitle = matcher.group(0).trim();
 
-                Log.d(TAG, "Potential title found on page " + i + ": \"" + potentialTitle + "\"");
+                //Log.d(TAG, "Potential title found on page " + i + ": \"" + potentialTitle + "\"");
 
                 if (potentialTitle.length() > 2 && potentialTitle.length() < 50 && !identifiedChapterTitles.contains(potentialTitle)) {
                     // 过滤掉过短的纯汉字短语或数字，例如 "第一" (不带章)
                     if (!potentialTitle.matches("^[\\u4E00-\\u9FA5]{1,2}$") && !potentialTitle.matches("^[\\d一二三四五六七八九十]{1,2}$")) {
                         tocEntries.add(new TableOfContents(potentialTitle, i));
                         identifiedChapterTitles.add(potentialTitle);
-                        chapterFoundOnPage = true;
-                        Log.d(TAG, "Added TOC entry: \"" + potentialTitle + "\" at page " + i);
+                        //Log.d(TAG, "Added TOC entry: \"" + potentialTitle + "\" at page " + i);
                         break; // 找到一个章节就停止在该页的查找
                     } else {
                         Log.d(TAG, "Filtered out potential title (too short/generic): \"" + potentialTitle + "\"");

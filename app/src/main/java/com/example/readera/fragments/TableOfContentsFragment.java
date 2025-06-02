@@ -154,12 +154,7 @@ public class TableOfContentsFragment extends Fragment implements TableOfContents
         } else {
             Toast.makeText(getContext(), "无法跳转到页面，Activity类型不匹配", Toast.LENGTH_SHORT).show();
         }
-        // 关闭当前的目录 Fragment 或 BottomSheetDialog (如果它在一个 BottomSheetDialog 中)
-        if (getParentFragment() instanceof SettingsBottomSheetFragment) {
-            // 如果 TableOfContentsFragment 是 SettingsBottomSheetFragment 的子 Fragment
-            // 这里你需要一个机制来关闭 SettingsBottomSheetFragment
-            // 比如在 SettingsBottomSheetFragment 中定义一个 public 方法来 dismiss
-        } else if (getActivity() instanceof ReadingActivity) {
+        if (getActivity() instanceof ReadingActivity) {
             // 如果 TableOfContentsFragment 是直接添加到 ReadingActivity 上的
             // 你可能需要通过FragmentManager来移除它
             getParentFragmentManager().popBackStack(); // 返回上一个 Fragment

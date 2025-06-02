@@ -91,7 +91,6 @@ public class BookShelfFragment  extends Fragment {
                         if (data != null && data.getData() != null) {
                             Uri uri = data.getData();
                             // **重要：对单个文件 URI 进行持久化权限操作**
-                            // **重要：对单个文件 URI 进行持久化权限操作**
                             final int takeFlags = data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION;
                             try {
                                 requireContext().getContentResolver().takePersistableUriPermission(uri, takeFlags);

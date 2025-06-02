@@ -17,11 +17,15 @@ import java.util.List;
 public class NovelPageAdapter extends RecyclerView.Adapter<NovelPageAdapter.NovelPageViewHolder> {
 
     private final List<String> pages;
+    private int statusBarHeight;
     private ReadingSettingsManager readingSettingsManager; // 添加此成员变量
 
-    public NovelPageAdapter(List<String> pages) {
+    public NovelPageAdapter(List<String> pages,int statusBarHeight) {
         this.pages = pages;
+        this.statusBarHeight = statusBarHeight;
+
     }
+
 
     @NonNull
     @Override
@@ -42,6 +46,8 @@ public class NovelPageAdapter extends RecyclerView.Adapter<NovelPageAdapter.Nove
 
         // 关键：在这里应用阅读设置
         applyNovelPageViewSettings(holder.novelPageView);
+        // 关键：在这里设置系统栏内边距给 NovelPageView
+        holder.novelPageView.setSystemBarPadding(statusBarHeight);
     }
 
     @Override

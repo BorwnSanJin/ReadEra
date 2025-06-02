@@ -5,6 +5,7 @@ import static com.example.readera.Adapter.NovelPageAdapter.NovelPageViewHolder;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -86,13 +87,17 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
     private int currentBackgroundColor;
     private int currentTextColor;
 
+    private boolean ignoreViewPagerTouch = false;
+
+
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         // 初始化系统 UI 控制器，并进入全屏模式
         systemUiController = new SystemUiController(getWindow(), getWindow().getDecorView(), this);
-        systemUiController.enterFullScreenMode();
+        systemUiController.enterFullScreenMode();// 让应用全屏，内容延伸到系统栏后面
 
         // 绑定布局
         binding = ActivityReadingBinding.inflate(getLayoutInflater());
@@ -117,6 +122,15 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
         currentBackgroundColor = readingSettings.getBackgroundColor(); // 初始化背景色
         currentTextColor = readingSettings.getTextColor(); // 初始化文本颜色
         applyReadingTheme(currentBackgroundColor, currentTextColor); // 首次应用背景色和文本颜色
+
+
+        // 初始化手势检测器，用于处理点击事件
+        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onSingleTapUp(MotionEvent e) {
+                return true; // 表示此单击事件已由我们处理
+            }
+        });
 
         // --- 基本控件操作 ---
         binding.ivBack.setOnClickListener(v -> finish()); // 返回按钮点击事件
@@ -154,19 +168,9 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
         // --- 设置窗口边距监听器，处理系统栏（状态栏、导航栏）的内边距 ---
         ViewCompat.setOnApplyWindowInsetsListener(binding.readerRootLayout, (v, insets) -> {
             Insets systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-
-            // 记录状态栏高度，以便为 topBar 设置 padding
             if (systemBarsInsets.top > 0) {
                 fixedStatusBarHeight = systemBarsInsets.top;
             }
-            // 为 topBar 设置 padding：状态栏高度
-            topBar.setPadding(
-                    topBar.getPaddingLeft(),
-                    fixedStatusBarHeight,
-                    topBar.getPaddingRight(),
-                    topBar.getPaddingBottom()
-            );
-
             // 在这里初始化并缓存当前的阅读设置，以供后续比较
             currentTextSizeSp = readingSettings.getTextSizeSp();
             currentLineSpacingExtraDp = readingSettings.getLineSpacingExtraDp();
@@ -175,56 +179,59 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
             currentBackgroundColor = readingSettings.getBackgroundColor();
             currentTextColor = readingSettings.getTextColor();
 
+            topBar.setPadding(
+                    topBar.getPaddingLeft(),
+                    fixedStatusBarHeight,
+                    topBar.getPaddingRight(),
+                    topBar.getPaddingBottom()
+            );
+
+
+            // 如果已经接收到 Insets 并且尚未触发分页，或者需要重新分页
+            if (fixedStatusBarHeight > 0 || !isPaginationTriggered) {
+                // 等待 ViewPager2 布局完成后再进行分页
+                // 防止在尺寸还未确定时进行无效的分页
+                vp2NovelPages.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+                        vp2NovelPages.getViewTreeObserver().removeOnGlobalLayoutListener(this); // 移除监听器
+
+                        int vp2Width = vp2NovelPages.getWidth();
+                        int vp2Height = vp2NovelPages.getHeight();
+
+                        Log.d(TAG, "onGlobalLayout 触发。ViewPager2 尺寸: " + vp2Width + "x" + vp2Height);
+
+                        if (vp2Width > 0 && vp2Height > 0 && !isPaginationTriggered) {
+                            isPaginationTriggered = true;
+                            Log.d(TAG, "获取到有效的 ViewPager2 尺寸。触发加载并分页文本。");
+
+                            // 计算 NovelPageView 实际可用于绘制文本的区域
+                            int[] pagePaddingPx = readingSettings.getPagePaddingPx();
+                            int novelPageInternalPaddingLeft = pagePaddingPx[0];
+                            int novelPageInternalPaddingTop = pagePaddingPx[1];
+                            int novelPageInternalPaddingRight = pagePaddingPx[2];
+                            int novelPageInternalPaddingBottom = pagePaddingPx[3];
+
+                            // NovelPageView 内部的文本内容需要避开状态栏和导航栏
+                            // 因此，实际可用于绘制文本的宽度是 ViewPager2 宽度减去左右内边距
+                            int actualContentWidthPx = vp2Width - novelPageInternalPaddingLeft - novelPageInternalPaddingRight;
+                            // 实际可用于绘制文本的高度是 ViewPager2 高度减去上下内边距，并且减去状态栏和导航栏高度
+                            int actualContentHeightPx = vp2Height - novelPageInternalPaddingTop - novelPageInternalPaddingBottom - fixedStatusBarHeight;
+
+                            Log.d(TAG, "为 TextPager 计算的内容区域: " + actualContentWidthPx + "x" + actualContentHeightPx +
+                                    " (状态栏: " + fixedStatusBarHeight + "px)");
+
+                            loadAndPaginateText(fileUri, actualContentWidthPx, actualContentHeightPx);
+                        }
+                    }
+                });
+            }
+
             return insets; // 返回处理后的 Insets
         });
 
         // 显示加载指示器
         showLoadingIndicator();
-
-        // --- ViewPager2 全局布局监听器：当 ViewPager2 完成布局时触发分页 ---
-        vp2NovelPages.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                // 移除监听器，避免重复触发
-                vp2NovelPages.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-
-                int vp2Width = vp2NovelPages.getWidth();
-                int vp2Height = vp2NovelPages.getHeight();
-
-                Log.d(TAG, "onGlobalLayout 触发。ViewPager2 尺寸: " + vp2Width + "x" + vp2Height);
-
-                int vp2PaddingTop = vp2NovelPages.getPaddingTop();
-
-                // 确保尺寸有效且尚未触发分页
-                if (vp2Width > 0 && vp2Height > 0 && !isPaginationTriggered) {
-                    isPaginationTriggered = true; // 标记已触发
-                    Log.d(TAG, "获取到有效的 ViewPager2 尺寸。触发加载并分页文本。");
-
-                    // 这里的 vp2Width 和 vp2Height 已经是 ViewPager2 实际占据的屏幕区域（系统栏之间）
-                    // 只需要从这个区域中扣除 NovelPageView 自身的内部文本边距即可。
-                    int[] pagePaddingPx = readingSettings.getPagePaddingPx();
-                    int novelPageInternalPaddingPxHorizontal = pagePaddingPx[0] + pagePaddingPx[2]; // 左右内边距之和
-                    int novelPageInternalPaddingPxVertical = pagePaddingPx[3]+vp2PaddingTop; // 上下内边距之和
-
-                    int actualContentWidthPx = vp2Width - novelPageInternalPaddingPxHorizontal;
-                    int actualContentHeightPx = vp2Height - novelPageInternalPaddingPxVertical;
-
-                    Log.d(TAG, "为 TextPager 计算的内容区域: " + actualContentWidthPx + "x" + actualContentHeightPx);
-
-                    // 调用加载并分页文本的方法
-                    loadAndPaginateText(fileUri, actualContentWidthPx, actualContentHeightPx);
-                }
-            }
-        });
-
-        // 初始化手势检测器，用于处理点击事件
-        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
-            @Override
-            public boolean onSingleTapUp(MotionEvent e) {
-                // 返回 false 以允许子视图（如 tapArea）接收点击事件
-                return false;
-            }
-        });
 
         // --- 点击区域监听器 ---
         leftTapArea.setOnClickListener(v -> {
@@ -291,13 +298,24 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
                 // 自动保存当前阅读进度
                 readingSettings.saveLastReadPage(fileUri, position);
                 Log.d(TAG, "自动保存书签到页面: " + position);
+
+                //在页面切换时也确保应用正确的阅读设置和系统内边距
+                RecyclerView recyclerView= (RecyclerView) vp2NovelPages.getChildAt(0);
+                if(recyclerView !=null){
+                    NovelPageViewHolder holder = (NovelPageViewHolder) recyclerView.findViewHolderForAdapterPosition(position);
+                    if (holder != null && holder.novelPageView != null) {
+                        applyNovelPageViewSettings(holder.novelPageView); // 应用普通阅读设置
+                        // 设置 NovelPageView 的系统栏内边距
+                        holder.novelPageView.setSystemBarPadding(fixedStatusBarHeight);
+                        holder.novelPageView.invalidate(); // 请求重绘
+                    }
+                }
             }
         });
 
         // 首次加载时立即隐藏菜单栏
         hideBarsImmediately();
     }
-
 
     /**
      * 实现 SettingsBottomSheetFragment.OnSettingsChangeListener 接口的方法
@@ -337,8 +355,8 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
                                 return;
                             }
 
-                            // 设置 ViewPager2 的适配器
-                            pageAdapter = new NovelPageAdapter(pages);
+                            // 传入状态栏和导航栏高度给适配器，让每个 NovelPageView 知道如何处理其内容内边距
+                            pageAdapter = new NovelPageAdapter(pages, fixedStatusBarHeight);
                             vp2NovelPages.setAdapter(pageAdapter);
                             // --- 新增：在分页完成后生成并缓存目录 ---
                             // 需要 TextPager 实例来生成目录。
@@ -763,20 +781,13 @@ public class ReadingActivity extends AppCompatActivity implements SettingsBottom
         return sb.toString();
     }
 
-
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         // 当窗口焦点改变时，确保恢复全屏模式（例如，从通知栏返回时）
         if (hasFocus) {
-            systemUiController.enterFullScreenMode();
+            systemUiController.enterFullScreenMode(); // <-- 暂时注释掉这行
         }
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        // 将触摸事件传递给手势检测器，然后才是父类的触摸事件处理
-        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
     }
 
     @Override

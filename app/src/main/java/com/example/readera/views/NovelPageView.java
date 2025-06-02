@@ -8,6 +8,7 @@ import android.text.Layout;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 
@@ -29,6 +30,11 @@ public class NovelPageView extends View {
     private float  lineSpacingExtraDp; // 行间距，单位像素
     private Typeface textTypeface; // 字体
     private int pagePaddingLeft, pagePaddingTop, pagePaddingRight, pagePaddingBottom; // 页面内边距
+
+    // 新增：系统栏内边距
+    private int statusBarPadding = 0;
+    private static final String TAG = "NovelPageView"; // 添加 TAG
+
 
     public NovelPageView(Context context) {
         super(context);
@@ -123,6 +129,20 @@ public class NovelPageView extends View {
     }
 
     /**
+     * 设置系统栏（状态栏和导航栏）引起的额外内边距。
+     * 这个方法应该由外部调用，当获取到 Insets 后设置。
+     * @param statusBarPadding 状态栏高度（像素）
+     */
+    public void setSystemBarPadding(int statusBarPadding) {
+        if (this.statusBarPadding != statusBarPadding ) {
+            this.statusBarPadding = statusBarPadding;
+            Log.d(TAG, "setSystemBarPadding: statusBar=" + statusBarPadding );
+            recreateStaticLayout(); // 系统栏内边距变化也可能影响布局
+            invalidate();
+        }
+    }
+
+    /**
      * 使用当前尺寸和文本重新创建 StaticLayout。
      * 这对于正确的文本换行至关重要。
      */
@@ -132,8 +152,15 @@ public class NovelPageView extends View {
             return;
         }
 
+        // 计算实际可用于绘制文本的宽度和高度
+        // 总宽度 - 左内边距 - 右内边距
         int availableWidth = getWidth() - pagePaddingLeft - pagePaddingRight;
-        if (availableWidth <= 0) {
+        // 总高度 - 上内边距 - 下内边距 - 状态栏内边距 - 导航栏内边距
+        int availableHeight = getHeight() - pagePaddingTop - pagePaddingBottom - statusBarPadding;
+
+        if (availableWidth <= 0 || availableHeight <= 0) {
+            Log.w(TAG, "Available content size is too small: " + availableWidth + "x" + availableHeight +
+                    ". Check paddings and system bar heights.");
             staticLayout = null;
             return;
         }
@@ -142,18 +169,34 @@ public class NovelPageView extends View {
             staticLayout = StaticLayout.Builder.obtain(pageText, 0, pageText.length(), textPaint, availableWidth)
                     .setAlignment(Layout.Alignment.ALIGN_NORMAL)
                     .setLineSpacing(dpToPx(lineSpacingExtraDp), 1.0f)
-                    .setIncludePad(false)
+                    .setIncludePad(false) // 通常设置为 false，让 StaticLayout 内部自己处理行高
                     .build();
         } else {
+            // 对于 API < 23，使用旧的 StaticLayout 构造函数
             staticLayout = new StaticLayout(pageText, textPaint, availableWidth,
                     Layout.Alignment.ALIGN_NORMAL, 1.0f, dpToPx(lineSpacingExtraDp), false);
+        }
+
+        // 可以在这里添加一个检查，如果 staticLayout 的高度超出了 availableHeight，
+        // 则说明分页计算可能不准确，或者文本内容过多。
+        if (staticLayout != null && staticLayout.getHeight() > availableHeight) {
+            Log.w(TAG, "StaticLayout height (" + staticLayout.getHeight() + ") exceeds available height (" + availableHeight + "). " +
+                    "This page might have truncated content. Check TextPager logic.");
+            // 实际上，TextPager 应该已经根据这个 availableHeight 进行了分页，
+            // 如果这里超出，可能是计算误差或 TextPager 的逻辑问题。
+            // 在 NovelPageView 层面通常不进行文本裁剪，而是由分页器处理。
         }
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        recreateStaticLayout();
+        // 在 onMeasure 之后，视图的尺寸 (getWidth(), getHeight()) 才是最终确定的
+        // 所以在这里调用 recreateStaticLayout 是合适的，如果尺寸发生变化的话
+        // onSizeChanged 也会触发 recreateStaticLayout，两者配合确保正确性
+        if (getWidth() != 0 && getHeight() != 0 && staticLayout == null) {
+            recreateStaticLayout();
+        }
     }
 
     @Override
@@ -171,7 +214,7 @@ public class NovelPageView extends View {
         if (staticLayout != null) {
             // 绘制前应用内边距
             canvas.save();
-            canvas.translate(pagePaddingLeft, pagePaddingTop);
+            canvas.translate(pagePaddingLeft, pagePaddingTop+statusBarPadding);
             staticLayout.draw(canvas);
             canvas.restore();
         }
